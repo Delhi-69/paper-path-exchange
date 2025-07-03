@@ -1,6 +1,6 @@
 
 import { Button } from "@/components/ui/button";
-import { Search, Plus, Library, MessageSquare, User, Shield } from "lucide-react";
+import { Search, Plus, Library, MessageSquare, User, Shield, Book, ShoppingCart } from "lucide-react";
 import { DashboardView } from "@/types/dashboard";
 
 interface MobileBottomNavProps {

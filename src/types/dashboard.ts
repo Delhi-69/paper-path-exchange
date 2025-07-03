@@ -8,4 +8,5 @@ export type DashboardView =
   | "profile"
   | "notifications"
   | "admin"
-  | "transactions";
+  | "transactions"
+  | "preferences";
