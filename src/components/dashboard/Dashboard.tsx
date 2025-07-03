@@ -4,7 +4,7 @@ import { User } from "@supabase/supabase-js";
 import { Header } from "./Header";
 import { MobileHeader } from "./MobileHeader";
 import { MobileBottomNav } from "./MobileBottomNav";
-import { BookDiscovery } from "./BookDiscovery";
+import BookDiscovery from "./BookDiscovery";
 import { SellBook } from "./SellBook";
 import { MyBooks } from "./MyBooks";
 import { Requests } from "./Requests";
