@@ -7,9 +7,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MapPin, Search, Truck, Star, Clock } from 'lucide-react';
+import { MapPin, Search, Truck, Star, Clock, Filter } from 'lucide-react';
 import { toast } from 'sonner';
 import BookCard from './BookCard';
+import { useUserLocation, calculateDistance, calculateDeliveryCharge } from '@/hooks/useLocationUtils';
 
 interface Book {
   id: string;
@@ -33,62 +34,12 @@ interface Book {
   delivery_charge?: number;
 }
 
-interface UserLocation {
-  latitude: number;
-  longitude: number;
-}
-
-const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-  const R = 6371; // Earth's radius in kilometers
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = 
-    Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-    Math.sin(dLon/2) * Math.sin(dLon/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  return R * c;
-};
-
-const calculateDeliveryCharge = (distance: number): number => {
-  if (distance <= 5) return 0;
-  if (distance <= 7) return 50;
-  if (distance <= 10) return 75;
-  return 100;
-};
-
 const BookDiscovery: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGenre, setSelectedGenre] = useState<string>('');
   const [selectedCondition, setSelectedCondition] = useState<string>('');
-  const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [sortBy, setSortBy] = useState<string>('distance');
-
-  useEffect(() => {
-    const getUserLocation = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('latitude, longitude')
-          .eq('id', user.id)
-          .single();
-
-        if (profile?.latitude && profile?.longitude) {
-          setUserLocation({
-            latitude: profile.latitude,
-            longitude: profile.longitude
-          });
-        }
-      } catch (error) {
-        console.error('Error getting user location:', error);
-      }
-    };
-
-    getUserLocation();
-  }, []);
+  const { userLocation } = useUserLocation();
 
   const { data: books = [], isLoading, refetch } = useQuery({
     queryKey: ['books', searchQuery, selectedGenre, selectedCondition, userLocation],
@@ -171,241 +122,248 @@ const BookDiscovery: React.FC = () => {
   const conditions = ['New', 'Like New', 'Very Good', 'Good', 'Fair'];
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-        <div>
-          <h1 className="text-2xl font-bold">Discover Books</h1>
-          <p className="text-muted-foreground">
-            {userLocation ? 'Books within 10km of your location' : 'Set your location to see nearby books'}
-          </p>
+    <div className="min-h-screen bg-gray-900 text-white">
+      <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-white">Find Books Near You</h1>
+            <p className="text-gray-400 mt-1">
+              {userLocation ? `${books.length} books within 10km` : 'Set location to see nearby books'}
+            </p>
+          </div>
+          <Badge variant="outline" className="flex items-center gap-2 bg-green-500/10 text-green-400 border-green-500/20 px-4 py-2">
+            <MapPin className="h-4 w-4" />
+            {books.length} available
+          </Badge>
         </div>
-        <Badge variant="outline" className="flex items-center gap-1">
-          <MapPin className="h-3 w-3" />
-          {books.length} books found
-        </Badge>
-      </div>
 
-      {/* Search and Filters */}
-      <Card>
-        <CardContent className="p-4">
-          <form onSubmit={handleSearch} className="space-y-4">
-            <div className="flex gap-2">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <Input
-                  placeholder="Search by title, author, or description..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <Button type="submit">Search</Button>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <Select value={selectedGenre} onValueChange={setSelectedGenre}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Genre" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">All Genres</SelectItem>
-                  {genres.map(genre => (
-                    <SelectItem key={genre} value={genre}>{genre}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={selectedCondition} onValueChange={setSelectedCondition}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Condition" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">All Conditions</SelectItem>
-                  {conditions.map(condition => (
-                    <SelectItem key={condition} value={condition}>{condition}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Sort by" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="distance">Distance</SelectItem>
-                  <SelectItem value="price_low">Price: Low to High</SelectItem>
-                  <SelectItem value="price_high">Price: High to Low</SelectItem>
-                  <SelectItem value="newest">Newest First</SelectItem>
-                  <SelectItem value="rating">Seller Rating</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => {
-                  setSearchQuery('');
-                  setSelectedGenre('');
-                  setSelectedCondition('');
-                  setSortBy('distance');
-                }}
-              >
-                Clear Filters
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-
-      {/* Location Warning */}
-      {!userLocation && (
-        <Card className="border-yellow-200 bg-yellow-50">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-yellow-800">
-              <MapPin className="h-4 w-4" />
-              <span className="text-sm">
-                Set your location in your profile to see distance and delivery charges for books near you.
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Books Grid */}
-      {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Card key={i} className="animate-pulse">
-              <div className="h-48 bg-gray-200 rounded-t-lg"></div>
-              <CardContent className="p-4 space-y-2">
-                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-                <div className="h-3 bg-gray-200 rounded w-1/4"></div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : books.length === 0 ? (
-        <Card>
-          <CardContent className="p-8 text-center">
-            <div className="space-y-2">
-              <h3 className="text-lg font-medium">No books found</h3>
-              <p className="text-muted-foreground">
-                {userLocation 
-                  ? "No books match your search criteria within 10km of your location."
-                  : "Try adjusting your search filters or set your location to see nearby books."
-                }
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {books.map((book: Book) => (
-            <Card key={book.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-              <div className="relative">
-                {book.images && book.images.length > 0 ? (
-                  <img 
-                    src={book.images[0]} 
-                    alt={book.title}
-                    className="w-full h-48 object-cover"
+        {/* Search and Filters */}
+        <Card className="bg-gray-800 border-gray-700 shadow-xl">
+          <CardContent className="p-6">
+            <form onSubmit={handleSearch} className="space-y-4">
+              <div className="flex gap-3">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                  <Input
+                    placeholder="Search books, authors, or keywords..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-12 bg-gray-700 border-gray-600 text-white placeholder:text-gray-400 h-12 text-lg"
                   />
-                ) : (
-                  <div className="w-full h-48 bg-gray-200 flex items-center justify-center">
-                    <span className="text-gray-400">No image</span>
-                  </div>
-                )}
-                
-                {/* Distance and Delivery Badge */}
-                {book.distance !== undefined && (
-                  <div className="absolute top-2 left-2 space-y-1">
-                    <Badge variant="secondary" className="bg-white/90 text-xs">
-                      <MapPin className="h-3 w-3 mr-1" />
-                      {book.distance}km away
-                    </Badge>
-                    {book.delivery_charge !== undefined && (
-                      <Badge 
-                        variant={book.delivery_charge === 0 ? "default" : "outline"} 
-                        className="bg-white/90 text-xs block"
-                      >
-                        <Truck className="h-3 w-3 mr-1" />
-                        {book.delivery_charge === 0 ? 'Free Delivery' : `₹${book.delivery_charge} Delivery`}
-                      </Badge>
-                    )}
-                  </div>
-                )}
-
-                {/* Condition Badge */}
-                <Badge 
-                  variant="outline" 
-                  className="absolute top-2 right-2 bg-white/90"
-                >
-                  {book.condition}
-                </Badge>
+                </div>
+                <Button type="submit" className="bg-green-500 hover:bg-green-600 px-8 h-12">
+                  Search
+                </Button>
               </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <Select value={selectedGenre} onValueChange={setSelectedGenre}>
+                  <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
+                    <SelectValue placeholder="Genre" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-gray-800 border-gray-700">
+                    <SelectItem value="">All Genres</SelectItem>
+                    {genres.map(genre => (
+                      <SelectItem key={genre} value={genre} className="text-white">{genre}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-              <CardContent className="p-4">
-                <div className="space-y-2">
-                  <div>
-                    <h3 className="font-semibold line-clamp-1">{book.title}</h3>
-                    <p className="text-sm text-muted-foreground line-clamp-1">by {book.author}</p>
-                  </div>
+                <Select value={selectedCondition} onValueChange={setSelectedCondition}>
+                  <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
+                    <SelectValue placeholder="Condition" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-gray-800 border-gray-700">
+                    <SelectItem value="">All Conditions</SelectItem>
+                    {conditions.map(condition => (
+                      <SelectItem key={condition} value={condition} className="text-white">{condition}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-                  <div className="flex items-center justify-between">
-                    <span className="text-lg font-bold text-green-600">
-                      ₹{book.price_range}
-                      {book.delivery_charge !== undefined && book.delivery_charge > 0 && (
-                        <span className="text-sm text-muted-foreground font-normal">
-                          + ₹{book.delivery_charge} delivery
-                        </span>
+                <Select value={sortBy} onValueChange={setSortBy}>
+                  <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
+                    <SelectValue placeholder="Sort by" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-gray-800 border-gray-700">
+                    <SelectItem value="distance" className="text-white">Distance</SelectItem>
+                    <SelectItem value="price_low" className="text-white">Price: Low to High</SelectItem>
+                    <SelectItem value="price_high" className="text-white">Price: High to Low</SelectItem>
+                    <SelectItem value="newest" className="text-white">Newest First</SelectItem>
+                    <SelectItem value="rating" className="text-white">Seller Rating</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => {
+                    setSearchQuery('');
+                    setSelectedGenre('');
+                    setSelectedCondition('');
+                    setSortBy('distance');
+                  }}
+                  className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                >
+                  <Filter className="h-4 w-4 mr-2" />
+                  Clear
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+
+        {/* Location Warning */}
+        {!userLocation && (
+          <Card className="border-yellow-500/20 bg-yellow-500/10">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 text-yellow-400">
+                <MapPin className="h-5 w-5" />
+                <span>Set your location in profile to see distance and delivery charges</span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Books Grid */}
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Card key={i} className="animate-pulse bg-gray-800 border-gray-700">
+                <div className="h-56 bg-gray-700 rounded-t-lg"></div>
+                <CardContent className="p-4 space-y-3">
+                  <div className="h-5 bg-gray-700 rounded w-3/4"></div>
+                  <div className="h-4 bg-gray-700 rounded w-1/2"></div>
+                  <div className="h-4 bg-gray-700 rounded w-1/3"></div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : books.length === 0 ? (
+          <Card className="bg-gray-800 border-gray-700">
+            <CardContent className="p-12 text-center">
+              <div className="space-y-4">
+                <Search className="h-16 w-16 text-gray-500 mx-auto" />
+                <h3 className="text-xl font-medium text-white">No books found</h3>
+                <p className="text-gray-400 max-w-md mx-auto">
+                  {userLocation 
+                    ? "No books match your search within 10km. Try adjusting your filters."
+                    : "Set your location to discover books near you."
+                  }
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {books.map((book: Book) => (
+              <Card key={book.id} className="overflow-hidden hover:shadow-2xl transition-all duration-300 bg-gray-800 border-gray-700 hover:border-green-500/30 group">
+                <div className="relative">
+                  {book.images && book.images.length > 0 ? (
+                    <img 
+                      src={book.images[0]} 
+                      alt={book.title}
+                      className="w-full h-56 object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  ) : (
+                    <div className="w-full h-56 bg-gray-700 flex items-center justify-center">
+                      <span className="text-gray-400 text-lg">No image</span>
+                    </div>
+                  )}
+                  
+                  {/* Distance and Delivery Badge */}
+                  {book.distance !== undefined && (
+                    <div className="absolute top-3 left-3 space-y-2">
+                      <Badge className="bg-black/80 text-white border-0 backdrop-blur">
+                        <MapPin className="h-3 w-3 mr-1" />
+                        {book.distance}km
+                      </Badge>
+                      {book.delivery_charge !== undefined && (
+                        <Badge 
+                          className={`block ${
+                            book.delivery_charge === 0 
+                              ? 'bg-green-500/90 text-white border-0' 
+                              : 'bg-orange-500/90 text-white border-0'
+                          } backdrop-blur`}
+                        >
+                          <Truck className="h-3 w-3 mr-1" />
+                          {book.delivery_charge === 0 ? 'Free' : `₹${book.delivery_charge}`}
+                        </Badge>
                       )}
-                    </span>
-                    
-                    {book.seller?.average_rating && (
-                      <div className="flex items-center gap-1 text-sm">
-                        <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                        <span>{book.seller.average_rating.toFixed(1)}</span>
-                        <span className="text-muted-foreground">
-                          ({book.seller.review_count})
+                    </div>
+                  )}
+
+                  {/* Condition Badge */}
+                  <Badge className="absolute top-3 right-3 bg-blue-500/90 text-white border-0 backdrop-blur">
+                    {book.condition}
+                  </Badge>
+                </div>
+
+                <CardContent className="p-5">
+                  <div className="space-y-3">
+                    <div>
+                      <h3 className="font-semibold text-lg text-white line-clamp-1 group-hover:text-green-400 transition-colors">
+                        {book.title}
+                      </h3>
+                      <p className="text-gray-400 line-clamp-1">by {book.author}</p>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-2xl font-bold text-green-400">
+                          ₹{book.price_range}
                         </span>
+                        {book.delivery_charge !== undefined && book.delivery_charge > 0 && (
+                          <p className="text-sm text-gray-400">
+                            + ₹{book.delivery_charge} delivery
+                          </p>
+                        )}
+                      </div>
+                      
+                      {book.seller?.average_rating && (
+                        <div className="flex items-center gap-1 bg-gray-700 px-2 py-1 rounded-full">
+                          <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                          <span className="text-sm text-white">{book.seller.average_rating.toFixed(1)}</span>
+                          <span className="text-xs text-gray-400">({book.seller.review_count})</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {book.description && (
+                      <p className="text-sm text-gray-400 line-clamp-2">
+                        {book.description}
+                      </p>
+                    )}
+
+                    <div className="flex items-center justify-between pt-2 border-t border-gray-700">
+                      <div className="flex items-center gap-1 text-xs text-gray-500">
+                        <Clock className="h-3 w-3" />
+                        <span>{new Date(book.created_at).toLocaleDateString()}</span>
+                      </div>
+                      
+                      <BookCard 
+                        book={book} 
+                        onPurchaseRequest={() => {
+                          toast.success('Purchase request sent!');
+                          refetch();
+                        }}
+                      />
+                    </div>
+
+                    {book.location_address && (
+                      <div className="flex items-center gap-1 text-xs text-gray-500 pt-1">
+                        <MapPin className="h-3 w-3" />
+                        <span className="line-clamp-1">{book.location_address}</span>
                       </div>
                     )}
                   </div>
-
-                  {book.description && (
-                    <p className="text-sm text-muted-foreground line-clamp-2">
-                      {book.description}
-                    </p>
-                  )}
-
-                  <div className="flex items-center justify-between pt-2">
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Clock className="h-3 w-3" />
-                      <span>Listed {new Date(book.created_at).toLocaleDateString()}</span>
-                    </div>
-                    
-                    <BookCard 
-                      book={book} 
-                      onPurchaseRequest={() => {
-                        toast.success('Purchase request sent!');
-                        refetch();
-                      }}
-                    />
-                  </div>
-
-                  {book.location_address && (
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground pt-1">
-                      <MapPin className="h-3 w-3" />
-                      <span className="line-clamp-1">{book.location_address}</span>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

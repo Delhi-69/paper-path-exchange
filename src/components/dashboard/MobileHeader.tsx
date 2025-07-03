@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { BookOpen, Bell, Settings, LogOut, Shield } from "lucide-react";
@@ -87,14 +88,16 @@ export const MobileHeader = ({ currentView, setCurrentView, isAdmin }: MobileHea
   };
 
   return (
-    <header className="bg-white shadow-sm border-b sticky top-0 z-50">
+    <header className="bg-gray-800 shadow-lg border-b border-gray-700 sticky top-0 z-50 backdrop-blur-sm">
       <div className="flex items-center justify-between h-16 px-4">
         {/* Logo and Title */}
         <div className="flex items-center space-x-3">
-          <BookOpen className="h-8 w-8 text-blue-600" />
+          <div className="bg-green-500 p-2 rounded-lg">
+            <BookOpen className="h-6 w-6 text-white" />
+          </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">BookEx</h1>
-            <p className="text-xs text-gray-500">{getPageTitle()}</p>
+            <h1 className="text-xl font-bold text-white">BookEx</h1>
+            <p className="text-xs text-gray-400">{getPageTitle()}</p>
           </div>
         </div>
 
@@ -105,12 +108,12 @@ export const MobileHeader = ({ currentView, setCurrentView, isAdmin }: MobileHea
             variant="ghost"
             size="sm"
             onClick={() => setCurrentView("notifications")}
-            className="relative p-2"
+            className="relative p-2 text-gray-300 hover:text-white hover:bg-gray-700"
           >
             <Bell className="h-5 w-5" />
             {unreadCount > 0 && (
               <Badge 
-                className="absolute -top-1 -right-1 bg-red-500 text-white text-xs min-w-[1.25rem] h-5 flex items-center justify-center rounded-full animate-pulse"
+                className="absolute -top-1 -right-1 bg-green-500 text-white text-xs min-w-[1.25rem] h-5 flex items-center justify-center rounded-full animate-pulse border-0"
               >
                 {unreadCount > 99 ? "99+" : unreadCount}
               </Badge>
@@ -120,12 +123,15 @@ export const MobileHeader = ({ currentView, setCurrentView, isAdmin }: MobileHea
           {/* Menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="p-2">
+              <Button variant="ghost" size="sm" className="p-2 text-gray-300 hover:text-white hover:bg-gray-700">
                 <Settings className="h-5 w-5" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48 bg-white">
-              <DropdownMenuItem onClick={() => setCurrentView("preferences")}>
+            <DropdownMenuContent align="end" className="w-48 bg-gray-800 border-gray-700">
+              <DropdownMenuItem 
+                onClick={() => setCurrentView("preferences")}
+                className="text-gray-300 hover:text-white hover:bg-gray-700"
+              >
                 <Settings className="h-4 w-4 mr-2" />
                 Settings
               </DropdownMenuItem>
@@ -133,10 +139,10 @@ export const MobileHeader = ({ currentView, setCurrentView, isAdmin }: MobileHea
               {/* Admin Panel - Only visible to admins */}
               {isAdmin && (
                 <>
-                  <DropdownMenuSeparator />
+                  <DropdownMenuSeparator className="bg-gray-700" />
                   <DropdownMenuItem 
                     onClick={() => setCurrentView("admin")}
-                    className="bg-gradient-to-r from-purple-50 to-blue-50 text-purple-700"
+                    className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 text-purple-400 hover:text-purple-300"
                   >
                     <Shield className="h-4 w-4 mr-2" />
                     Admin Dashboard
@@ -144,8 +150,11 @@ export const MobileHeader = ({ currentView, setCurrentView, isAdmin }: MobileHea
                 </>
               )}
               
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleSignOut} className="text-red-600">
+              <DropdownMenuSeparator className="bg-gray-700" />
+              <DropdownMenuItem 
+                onClick={handleSignOut} 
+                className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+              >
                 <LogOut className="h-4 w-4 mr-2" />
                 Sign Out
               </DropdownMenuItem>

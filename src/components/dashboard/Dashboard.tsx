@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { User } from "@supabase/supabase-js";
 import { Header } from "./Header";
@@ -27,7 +26,7 @@ export const Dashboard = ({ user }: DashboardProps) => {
   const [currentView, setCurrentView] = useState<DashboardView>("discover");
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminCheckLoading, setAdminCheckLoading] = useState(true);
-  const [userProfile, setUserProfile] = useState<any>(null); // Ideally define type!
+  const [userProfile, setUserProfile] = useState<any>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -113,10 +112,8 @@ export const Dashboard = ({ user }: DashboardProps) => {
       case "my-books":
         return <MyBooks />;
       case "requests":
-        // Show seller requests (books they're selling)
         return <Requests userId={user?.id} userProfile={userProfile} />;
       case "my-requests":
-        // Show buyer requests (books they want to buy)
         return <MyRequests userId={user?.id} userProfile={userProfile} />;
       case "profile":
         return <Profile user={user} />;
@@ -132,7 +129,7 @@ export const Dashboard = ({ user }: DashboardProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-900">
       <PWAInstallPrompt />
       <OfflineIndicator />
       
@@ -155,7 +152,7 @@ export const Dashboard = ({ user }: DashboardProps) => {
       </div>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-6 pb-20 md:pb-6">
+      <main className="pb-20 md:pb-6">
         {renderContent()}
       </main>
 
