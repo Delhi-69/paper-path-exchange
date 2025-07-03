@@ -1,15 +1,16 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { CheckCircle, Clock, Package, AlertTriangle, Calendar } from "lucide-react";
 import { PaymentMethodSelector } from "./PaymentMethodSelector";
 import { RefundSystem } from "./RefundSystem";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
 interface DeliveryConfirmationModalProps {
   isOpen: boolean;
@@ -30,6 +31,7 @@ interface DeliveryConfirmation {
   payment_method: string | null;
   final_payout_processed: boolean;
   expected_delivery_date: string | null;
+  otp_sent_at: string | null;
 }
 
 export const DeliveryConfirmationModal = ({
@@ -65,12 +67,17 @@ export const DeliveryConfirmationModal = ({
         .from('delivery_confirmations')
         .select('*')
         .eq('purchase_request_id', purchaseRequestId)
-        .single();
+        .maybeSingle();
 
       if (error && error.code !== 'PGRST116') throw error;
       setConfirmation(data);
     } catch (error: any) {
       console.error('Error fetching confirmation:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch delivery confirmation details",
+        variant: "destructive",
+      });
     }
   };
 
@@ -83,22 +90,31 @@ export const DeliveryConfirmationModal = ({
   const sendOTP = async () => {
     setSending(true);
     try {
+      console.log('Sending OTP for purchase request:', purchaseRequestId);
+      
       const { data, error } = await supabase.functions.invoke('send-delivery-otp', {
         body: { purchaseRequestId }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('OTP sending error:', error);
+        throw error;
+      }
+
+      console.log('OTP sent successfully:', data);
 
       toast({
-        title: "OTP Sent",
-        description: "Delivery OTP has been sent to your email and notifications.",
+        title: "OTP Sent Successfully!",
+        description: "Please check your email and notifications for the delivery OTP code.",
       });
 
-      fetchConfirmation();
+      // Force refresh the confirmation data
+      await fetchConfirmation();
     } catch (error: any) {
+      console.error('Failed to send OTP:', error);
       toast({
-        title: "Error",
-        description: error.message,
+        title: "Failed to Send OTP",
+        description: error.message || "There was an error sending the OTP. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -107,25 +123,42 @@ export const DeliveryConfirmationModal = ({
   };
 
   const verifyOTP = async () => {
+    if (!otpCode || otpCode.length !== 6) {
+      toast({
+        title: "Invalid OTP",
+        description: "Please enter a valid 6-digit OTP code.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
     try {
+      console.log('Verifying OTP:', otpCode, 'for purchase request:', purchaseRequestId);
+      
       const { data, error } = await supabase.functions.invoke('verify-delivery-otp', {
         body: { purchaseRequestId, otpCode }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('OTP verification error:', error);
+        throw error;
+      }
+
+      console.log('OTP verified successfully:', data);
 
       toast({
-        title: "Success",
-        description: "Delivery confirmed successfully!",
+        title: "Delivery Confirmed!",
+        description: "OTP verified successfully. Delivery has been confirmed.",
       });
 
       setOtpCode("");
-      fetchConfirmation();
+      await fetchConfirmation();
     } catch (error: any) {
+      console.error('Failed to verify OTP:', error);
       toast({
-        title: "Error",
-        description: error.message,
+        title: "OTP Verification Failed",
+        description: error.message || "Invalid or expired OTP. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -293,10 +326,18 @@ export const DeliveryConfirmationModal = ({
     });
   };
 
+  const isOTPExpired = (sentAt: string | null) => {
+    if (!sentAt) return false;
+    const sentTime = new Date(sentAt).getTime();
+    const currentTime = Date.now();
+    const tenMinutes = 10 * 60 * 1000;
+    return (currentTime - sentTime) > tenMinutes;
+  };
+
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Delivery Confirmation</DialogTitle>
           </DialogHeader>
@@ -328,36 +369,74 @@ export const DeliveryConfirmationModal = ({
                   <p className="text-sm text-gray-600">Buyer confirms receipt with OTP</p>
                   
                   {userType === 'buyer' && !confirmation?.otp_verified_at && (
-                    <div className="mt-2 space-y-2">
-                      {!confirmation ? (
-                        <Button size="sm" onClick={sendOTP} disabled={sending}>
-                          {sending ? "Sending..." : "Get OTP"}
+                    <div className="mt-2 space-y-3">
+                      {!confirmation || !confirmation.otp_sent_at ? (
+                        <Button 
+                          size="sm" 
+                          onClick={sendOTP} 
+                          disabled={sending}
+                          className="w-full"
+                        >
+                          {sending ? "Sending OTP..." : "Get Delivery OTP"}
                         </Button>
                       ) : (
-                        <div className="space-y-2">
-                          <Label htmlFor="otp">Enter OTP (Check Email)</Label>
-                          <div className="flex space-x-2">
-                            <Input
-                              id="otp"
-                              value={otpCode}
-                              onChange={(e) => setOtpCode(e.target.value)}
-                              placeholder="6-digit OTP"
+                        <div className="space-y-3">
+                          <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                            <p className="text-sm text-green-800 font-medium">
+                              OTP sent to your email and notifications!
+                            </p>
+                            <p className="text-xs text-green-600 mt-1">
+                              Check your email and app notifications for the 6-digit code
+                            </p>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label htmlFor="otp">Enter 6-digit OTP</Label>
+                            <InputOTP
                               maxLength={6}
-                              className="flex-1"
-                            />
-                            <Button size="sm" onClick={verifyOTP} disabled={loading || otpCode.length !== 6}>
-                              Verify
+                              value={otpCode}
+                              onChange={setOtpCode}
+                            >
+                              <InputOTPGroup>
+                                <InputOTPSlot index={0} />
+                                <InputOTPSlot index={1} />
+                                <InputOTPSlot index={2} />
+                                <InputOTPSlot index={3} />
+                                <InputOTPSlot index={4} />
+                                <InputOTPSlot index={5} />
+                              </InputOTPGroup>
+                            </InputOTP>
+                            
+                            <Button 
+                              size="sm" 
+                              onClick={verifyOTP} 
+                              disabled={loading || otpCode.length !== 6}
+                              className="w-full"
+                            >
+                              {loading ? "Verifying..." : "Verify OTP"}
                             </Button>
                           </div>
-                          <Button
-                            size="sm"
-                            variant="link"
-                            onClick={sendOTP}
-                            disabled={sending}
-                            className="p-0 h-auto"
-                          >
-                            {sending ? "Sending..." : "Resend OTP"}
-                          </Button>
+                          
+                          <div className="flex items-center justify-between">
+                            <Button
+                              size="sm"
+                              variant="link"
+                              onClick={sendOTP}
+                              disabled={sending}
+                              className="p-0 h-auto text-xs"
+                            >
+                              {sending ? "Sending..." : "Resend OTP"}
+                            </Button>
+                            
+                            {confirmation.otp_sent_at && (
+                              <span className="text-xs text-gray-500">
+                                {isOTPExpired(confirmation.otp_sent_at) ? 
+                                  "OTP expired" : 
+                                  "Valid for 10 minutes"
+                                }
+                              </span>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
