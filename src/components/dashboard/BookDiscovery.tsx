@@ -1,14 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MapPin, Search, Truck, Star, Clock, Filter, Route, Navigation } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { 
+  Search, 
+  Filter, 
+  MapPin, 
+  Sliders,
+  X,
+  Route,
+  Star,
+  Clock,
+  Truck,
+  User,
+  Heart,
+  Share
+} from 'lucide-react';
 import { toast } from 'sonner';
-import BookCard from './BookCard';
+import { UberBookCard } from './UberBookCard';
 import { useUserLocation, calculateDistance, calculateDeliveryCharge } from '@/hooks/useLocationUtils';
 
 interface Book {
@@ -38,6 +51,7 @@ const BookDiscovery: React.FC = () => {
   const [selectedGenre, setSelectedGenre] = useState<string>('all');
   const [selectedCondition, setSelectedCondition] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('distance');
+  const [showFilters, setShowFilters] = useState(false);
   const { userLocation } = useUserLocation();
 
   const { data: books = [], isLoading, refetch } = useQuery({
@@ -69,7 +83,6 @@ const BookDiscovery: React.FC = () => {
 
       if (!userLocation) return data || [];
 
-      // Filter books within 10km and calculate distances
       const booksWithDistance = (data || [])
         .map((book: any) => {
           if (!book.latitude || !book.longitude) return null;
@@ -91,7 +104,6 @@ const BookDiscovery: React.FC = () => {
         })
         .filter(Boolean);
 
-      // Sort books
       return booksWithDistance.sort((a: Book, b: Book) => {
         switch (sortBy) {
           case 'distance':
@@ -117,122 +129,124 @@ const BookDiscovery: React.FC = () => {
     refetch();
   };
 
-  const getDistanceColor = (distance: number) => {
-    if (distance <= 2) return "text-green-600 bg-green-50 border-green-200";
-    if (distance <= 5) return "text-blue-600 bg-blue-50 border-blue-200";
-    if (distance <= 10) return "text-orange-600 bg-orange-50 border-orange-200";
-    return "text-red-600 bg-red-50 border-red-200";
-  };
-
-  const getDistanceIcon = (distance: number) => {
-    if (distance <= 5) return "🟢";
-    if (distance <= 10) return "🟡";
-    return "🔴";
+  const clearFilters = () => {
+    setSearchQuery('');
+    setSelectedGenre('all');
+    setSelectedCondition('all');
+    setSortBy('distance');
   };
 
   const genres = ['Fiction', 'Non-Fiction', 'Science', 'History', 'Biography', 'Technology', 'Business', 'Self-Help', 'Romance', 'Mystery', 'Fantasy', 'Horror'];
   const conditions = ['New', 'Like New', 'Very Good', 'Good', 'Fair'];
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50">
       <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-white">Find Books Near You</h1>
-            <p className="text-gray-400 mt-1">
+        {/* Uber-style Header */}
+        <div className="text-center space-y-4">
+          <div className="space-y-2">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              Discover Books
+            </h1>
+            <p className="text-gray-600 text-lg">
               {userLocation ? `${books.length} books within 10km` : 'Set location to see nearby books'}
             </p>
           </div>
-          <Badge variant="outline" className="flex items-center gap-2 bg-green-500/10 text-green-400 border-green-500/20 px-4 py-2">
-            <MapPin className="h-4 w-4" />
-            {books.length} available
-          </Badge>
+          
+          {books.length > 0 && (
+            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 px-4 py-2 text-sm">
+              <MapPin className="h-4 w-4 mr-2" />
+              {books.length} available nearby
+            </Badge>
+          )}
         </div>
 
-        {/* Search and Filters */}
-        <Card className="bg-gray-800 border-gray-700 shadow-xl">
+        {/* Uber-style Search Bar */}
+        <Card className="bg-white/80 backdrop-blur-md border-0 shadow-xl">
           <CardContent className="p-6">
             <form onSubmit={handleSearch} className="space-y-4">
-              <div className="flex gap-3">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                  <Input
-                    placeholder="Search books, authors, or keywords..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-12 bg-gray-700 border-gray-600 text-white placeholder:text-gray-400 h-12 text-lg"
-                  />
-                </div>
-                <Button type="submit" className="bg-green-500 hover:bg-green-600 px-8 h-12">
-                  Search
+              {/* Main Search */}
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                <Input
+                  placeholder="Search for books, authors, or topics..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-12 pr-20 h-14 text-lg bg-gray-50 border-0 rounded-2xl focus:bg-white transition-all duration-200"
+                />
+                <Button 
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 h-10 px-4 rounded-xl"
+                >
+                  <Sliders className="h-4 w-4 mr-2" />
+                  Filters
                 </Button>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <Select value={selectedGenre} onValueChange={setSelectedGenre}>
-                  <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
-                    <SelectValue placeholder="Genre" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-gray-800 border-gray-700">
-                    <SelectItem value="all" className="text-white">All Genres</SelectItem>
-                    {genres.map(genre => (
-                      <SelectItem key={genre} value={genre} className="text-white">{genre}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              {/* Expandable Filters */}
+              {showFilters && (
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-4 border-t border-gray-100">
+                  <Select value={selectedGenre} onValueChange={setSelectedGenre}>
+                    <SelectTrigger className="h-12 rounded-xl border-0 bg-gray-50">
+                      <SelectValue placeholder="Genre" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Genres</SelectItem>
+                      {genres.map(genre => (
+                        <SelectItem key={genre} value={genre}>{genre}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
 
-                <Select value={selectedCondition} onValueChange={setSelectedCondition}>
-                  <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
-                    <SelectValue placeholder="Condition" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-gray-800 border-gray-700">
-                    <SelectItem value="all" className="text-white">All Conditions</SelectItem>
-                    {conditions.map(condition => (
-                      <SelectItem key={condition} value={condition} className="text-white">{condition}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <Select value={selectedCondition} onValueChange={setSelectedCondition}>
+                    <SelectTrigger className="h-12 rounded-xl border-0 bg-gray-50">
+                      <SelectValue placeholder="Condition" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Conditions</SelectItem>
+                      {conditions.map(condition => (
+                        <SelectItem key={condition} value={condition}>{condition}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
 
-                <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
-                    <SelectValue placeholder="Sort by" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-gray-800 border-gray-700">
-                    <SelectItem value="distance" className="text-white">Distance</SelectItem>
-                    <SelectItem value="price_low" className="text-white">Price: Low to High</SelectItem>
-                    <SelectItem value="price_high" className="text-white">Price: High to Low</SelectItem>
-                    <SelectItem value="newest" className="text-white">Newest First</SelectItem>
-                    <SelectItem value="rating" className="text-white">Seller Rating</SelectItem>
-                  </SelectContent>
-                </Select>
+                  <Select value={sortBy} onValueChange={setSortBy}>
+                    <SelectTrigger className="h-12 rounded-xl border-0 bg-gray-50">
+                      <SelectValue placeholder="Sort by" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="distance">Distance</SelectItem>
+                      <SelectItem value="price_low">Price: Low to High</SelectItem>
+                      <SelectItem value="price_high">Price: High to Low</SelectItem>
+                      <SelectItem value="newest">Newest First</SelectItem>
+                      <SelectItem value="rating">Seller Rating</SelectItem>
+                    </SelectContent>
+                  </Select>
 
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => {
-                    setSearchQuery('');
-                    setSelectedGenre('all');
-                    setSelectedCondition('all');
-                    setSortBy('distance');
-                  }}
-                  className="border-gray-600 text-gray-300 hover:bg-gray-700"
-                >
-                  <Filter className="h-4 w-4 mr-2" />
-                  Clear
-                </Button>
-              </div>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={clearFilters}
+                    className="h-12 rounded-xl border-0 bg-gray-50 hover:bg-gray-100"
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Clear
+                  </Button>
+                </div>
+              )}
             </form>
           </CardContent>
         </Card>
 
         {/* Location Warning */}
         {!userLocation && (
-          <Card className="border-yellow-500/20 bg-yellow-500/10">
+          <Card className="border-yellow-200 bg-gradient-to-r from-yellow-50 to-orange-50">
             <CardContent className="p-4">
-              <div className="flex items-center gap-2 text-yellow-400">
+              <div className="flex items-center gap-3 text-yellow-700">
                 <MapPin className="h-5 w-5" />
-                <span>Set your location in profile to see distance and delivery charges</span>
+                <span className="font-medium">Enable location to see distance and delivery charges</span>
               </div>
             </CardContent>
           </Card>
@@ -240,25 +254,28 @@ const BookDiscovery: React.FC = () => {
 
         {/* Books Grid */}
         {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <Card key={i} className="animate-pulse bg-gray-800 border-gray-700">
-                <div className="h-56 bg-gray-700 rounded-t-lg"></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Card key={i} className="animate-pulse bg-white border-0 shadow-md">
+                <div className="h-48 bg-gray-200 rounded-t-lg"></div>
                 <CardContent className="p-4 space-y-3">
-                  <div className="h-5 bg-gray-700 rounded w-3/4"></div>
-                  <div className="h-4 bg-gray-700 rounded w-1/2"></div>
-                  <div className="h-4 bg-gray-700 rounded w-1/3"></div>
+                  <div className="h-5 bg-gray-200 rounded w-3/4"></div>
+                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                  <div className="h-4 bg-gray-200 rounded w-1/3"></div>
+                  <div className="h-10 bg-gray-200 rounded"></div>
                 </CardContent>
               </Card>
             ))}
           </div>
         ) : books.length === 0 ? (
-          <Card className="bg-gray-800 border-gray-700">
+          <Card className="bg-white border-0 shadow-xl">
             <CardContent className="p-12 text-center">
               <div className="space-y-4">
-                <Search className="h-16 w-16 text-gray-500 mx-auto" />
-                <h3 className="text-xl font-medium text-white">No books found</h3>
-                <p className="text-gray-400 max-w-md mx-auto">
+                <div className="w-16 h-16 bg-gradient-to-r from-blue-100 to-purple-100 rounded-full flex items-center justify-center mx-auto">
+                  <Search className="h-8 w-8 text-gray-400" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900">No books found</h3>
+                <p className="text-gray-500 max-w-md mx-auto">
                   {userLocation 
                     ? "No books match your search within 10km. Try adjusting your filters."
                     : "Set your location to discover books near you."
@@ -268,131 +285,29 @@ const BookDiscovery: React.FC = () => {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {books.map((book: Book) => (
-              <Card key={book.id} className="overflow-hidden hover:shadow-2xl transition-all duration-300 bg-gray-800 border-gray-700 hover:border-green-500/30 group">
-                <div className="relative">
-                  {book.images && book.images.length > 0 ? (
-                    <img 
-                      src={book.images[0]} 
-                      alt={book.title}
-                      className="w-full h-56 object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                  ) : (
-                    <div className="w-full h-56 bg-gray-700 flex items-center justify-center">
-                      <span className="text-gray-400 text-lg">No image</span>
-                    </div>
-                  )}
-                  
-                  {/* Enhanced Distance and Delivery Badge */}
-                  {book.distance !== undefined && (
-                    <div className="absolute top-3 left-3 space-y-2">
-                      <Badge 
-                        variant="outline"
-                        className={`${getDistanceColor(book.distance)} backdrop-blur font-medium`}
-                      >
-                        <Route className="h-3 w-3 mr-1" />
-                        {book.distance}km {getDistanceIcon(book.distance)}
-                      </Badge>
-                      {book.delivery_charge !== undefined && (
-                        <Badge 
-                          className={`block ${
-                            book.delivery_charge === 0 
-                              ? 'bg-green-500/90 text-white border-0' 
-                              : 'bg-orange-500/90 text-white border-0'
-                          } backdrop-blur`}
-                        >
-                          <Truck className="h-3 w-3 mr-1" />
-                          {book.delivery_charge === 0 ? 'Free' : `₹${book.delivery_charge}`}
-                        </Badge>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Condition Badge */}
-                  <Badge className="absolute top-3 right-3 bg-blue-500/90 text-white border-0 backdrop-blur">
-                    {book.condition}
-                  </Badge>
-                </div>
-
-                <CardContent className="p-5">
-                  <div className="space-y-3">
-                    <div>
-                      <h3 className="font-semibold text-lg text-white line-clamp-1 group-hover:text-green-400 transition-colors">
-                        {book.title}
-                      </h3>
-                      <p className="text-gray-400 line-clamp-1">by {book.author}</p>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="text-2xl font-bold text-green-400">
-                          ₹{book.price_range}
-                        </span>
-                        {book.delivery_charge !== undefined && book.delivery_charge > 0 && (
-                          <p className="text-sm text-gray-400">
-                            + ₹{book.delivery_charge} delivery
-                          </p>
-                        )}
-                      </div>
-                      
-                      {book.seller?.average_rating && (
-                        <div className="flex items-center gap-1 bg-gray-700 px-2 py-1 rounded-full">
-                          <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                          <span className="text-sm text-white">{book.seller.average_rating.toFixed(1)}</span>
-                          <span className="text-xs text-gray-400">({book.seller.review_count})</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {book.description && (
-                      <p className="text-sm text-gray-400 line-clamp-2">
-                        {book.description}
-                      </p>
-                    )}
-
-                    <div className="flex items-center justify-between pt-2 border-t border-gray-700">
-                      <div className="flex items-center gap-1 text-xs text-gray-500">
-                        <Clock className="h-3 w-3" />
-                        <span>{new Date(book.created_at).toLocaleDateString()}</span>
-                      </div>
-                      
-                      <BookCard 
-                        book={book} 
-                        onPurchaseRequest={() => {
-                          toast.success('Purchase request sent!');
-                          refetch();
-                        }}
-                      />
-                    </div>
-
-                    {book.location_address && (
-                      <div className="flex items-center gap-1 text-xs text-gray-500 pt-1">
-                        <MapPin className="h-3 w-3" />
-                        <span className="line-clamp-1">{book.location_address}</span>
-                      </div>
-                    )}
-
-                    {/* Distance Info */}
-                    {book.distance !== undefined && (
-                      <div className="bg-gray-700/50 p-2 rounded text-xs">
-                        <div className="flex items-center justify-between">
-                          <span className="text-gray-400">Travel time:</span>
-                          <span className="text-white font-medium">
-                            {Math.round(book.distance / 30 * 60)} min
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between mt-1">
-                          <span className="text-gray-400">Best route:</span>
-                          <span className="text-white">
-                            {book.distance <= 5 ? 'Quick pickup' : 'Consider delivery'}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+              <UberBookCard
+                key={book.id}
+                book={book}
+                onInterest={(bookId) => {
+                  toast.success('Interest registered! Contact the seller to proceed.');
+                  // Handle interest logic here
+                }}
+                onShare={(bookId) => {
+                  if (navigator.share) {
+                    navigator.share({
+                      title: `${book.title} by ${book.author}`,
+                      text: `Check out this book for ₹${book.price_range}`,
+                      url: window.location.href
+                    });
+                  } else {
+                    navigator.clipboard.writeText(window.location.href);
+                    toast.success('Link copied to clipboard!');
+                  }
+                }}
+                compact={true}
+              />
             ))}
           </div>
         )}
