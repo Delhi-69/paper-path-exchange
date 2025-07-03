@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MapPin, Search, Truck, Star, Clock, Filter } from 'lucide-react';
+import { MapPin, Search, Truck, Star, Clock, Filter, Route, Navigation } from 'lucide-react';
 import { toast } from 'sonner';
 import BookCard from './BookCard';
 import { useUserLocation, calculateDistance, calculateDeliveryCharge } from '@/hooks/useLocationUtils';
@@ -116,6 +115,19 @@ const BookDiscovery: React.FC = () => {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     refetch();
+  };
+
+  const getDistanceColor = (distance: number) => {
+    if (distance <= 2) return "text-green-600 bg-green-50 border-green-200";
+    if (distance <= 5) return "text-blue-600 bg-blue-50 border-blue-200";
+    if (distance <= 10) return "text-orange-600 bg-orange-50 border-orange-200";
+    return "text-red-600 bg-red-50 border-red-200";
+  };
+
+  const getDistanceIcon = (distance: number) => {
+    if (distance <= 5) return "🟢";
+    if (distance <= 10) return "🟡";
+    return "🔴";
   };
 
   const genres = ['Fiction', 'Non-Fiction', 'Science', 'History', 'Biography', 'Technology', 'Business', 'Self-Help', 'Romance', 'Mystery', 'Fantasy', 'Horror'];
@@ -272,12 +284,15 @@ const BookDiscovery: React.FC = () => {
                     </div>
                   )}
                   
-                  {/* Distance and Delivery Badge */}
+                  {/* Enhanced Distance and Delivery Badge */}
                   {book.distance !== undefined && (
                     <div className="absolute top-3 left-3 space-y-2">
-                      <Badge className="bg-black/80 text-white border-0 backdrop-blur">
-                        <MapPin className="h-3 w-3 mr-1" />
-                        {book.distance}km
+                      <Badge 
+                        variant="outline"
+                        className={`${getDistanceColor(book.distance)} backdrop-blur font-medium`}
+                      >
+                        <Route className="h-3 w-3 mr-1" />
+                        {book.distance}km {getDistanceIcon(book.distance)}
                       </Badge>
                       {book.delivery_charge !== undefined && (
                         <Badge 
@@ -355,6 +370,24 @@ const BookDiscovery: React.FC = () => {
                       <div className="flex items-center gap-1 text-xs text-gray-500 pt-1">
                         <MapPin className="h-3 w-3" />
                         <span className="line-clamp-1">{book.location_address}</span>
+                      </div>
+                    )}
+
+                    {/* Distance Info */}
+                    {book.distance !== undefined && (
+                      <div className="bg-gray-700/50 p-2 rounded text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-400">Travel time:</span>
+                          <span className="text-white font-medium">
+                            {Math.round(book.distance / 30 * 60)} min
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between mt-1">
+                          <span className="text-gray-400">Best route:</span>
+                          <span className="text-white">
+                            {book.distance <= 5 ? 'Quick pickup' : 'Consider delivery'}
+                          </span>
+                        </div>
                       </div>
                     )}
                   </div>

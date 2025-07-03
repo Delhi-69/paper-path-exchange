@@ -13,13 +13,12 @@ import {
   TableBody,
   TableCaption,
   TableCell,
-  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, Circle, User, Book, MapPin, MessageSquare, Package, Calendar, Navigation, AlertCircle } from "lucide-react";
+import { CheckCircle, Circle, User, Book, MapPin, MessageSquare, Package, Calendar, Navigation, AlertCircle, Eye, Route } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { BookRouteMap } from "./BookRouteMap";
@@ -27,6 +26,8 @@ import { LeafletBookRouteMap } from "./LeafletBookRouteMap";
 import { ChatModal } from "./ChatModal";
 import { DeliveryConfirmationModal } from "./DeliveryConfirmationModal";
 import { DeliveryDateSelector } from "./DeliveryDateSelector";
+import { RequestPreviewModal } from "./RequestPreviewModal";
+import { EnhancedLocationDisplay } from "./EnhancedLocationDisplay";
 
 interface PurchaseRequest {
   id: string;
@@ -56,6 +57,8 @@ export const Requests = (props) => {
   const [selectedRequestForChat, setSelectedRequestForChat] = useState<string | null>(null);
   const [selectedRequestForDelivery, setSelectedRequestForDelivery] = useState<string | null>(null);
   const [selectedRequestForDate, setSelectedRequestForDate] = useState<string | null>(null);
+  const [selectedRequestForPreview, setSelectedRequestForPreview] = useState<PurchaseRequest | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
   const { toast } = useToast();
 
   const fetchRequests = async () => {
@@ -129,18 +132,30 @@ export const Requests = (props) => {
     fetchRequests();
   }, [props.userId]);
 
-  const handleAcceptRequest = async (requestId: string) => {
+  const handleAcceptRequest = async (requestId: string, deliveryDate: string) => {
+    setActionLoading(true);
     try {
       const { error } = await supabase
         .from("purchase_requests")
-        .update({ status: "accepted" })
+        .update({ 
+          status: "accepted",
+          expected_delivery_date: deliveryDate
+        })
         .eq("id", requestId);
 
       if (error) throw error;
 
+      // Send delivery notification
+      await supabase.functions.invoke('send-delivery-notification', {
+        body: { 
+          purchaseRequestId: requestId,
+          expectedDeliveryDate: deliveryDate
+        }
+      });
+
       toast({
         title: "Success",
-        description: "Request accepted successfully. You can now set delivery date and coordinate with the buyer.",
+        description: "Request accepted successfully. Delivery notification sent to buyer.",
       });
       fetchRequests();
     } catch (error: any) {
@@ -149,10 +164,13 @@ export const Requests = (props) => {
         description: "Failed to accept request",
         variant: "destructive",
       });
+    } finally {
+      setActionLoading(false);
     }
   };
 
   const handleRejectRequest = async (requestId: string) => {
+    setActionLoading(true);
     try {
       const { error } = await supabase
         .from("purchase_requests")
@@ -172,6 +190,8 @@ export const Requests = (props) => {
         description: "Failed to reject request",
         variant: "destructive",
       });
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -211,6 +231,19 @@ export const Requests = (props) => {
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     const distance = R * c;
     return Math.round(distance * 10) / 10; // Round to 1 decimal place
+  };
+
+  const getDistanceColor = (distance: number) => {
+    if (distance <= 2) return "text-green-600 bg-green-50 border-green-200";
+    if (distance <= 5) return "text-blue-600 bg-blue-50 border-blue-200";
+    if (distance <= 10) return "text-orange-600 bg-orange-50 border-orange-200";
+    return "text-red-600 bg-red-50 border-red-200";
+  };
+
+  const getDistanceIcon = (distance: number) => {
+    if (distance <= 5) return "🟢";
+    if (distance <= 10) return "🟡";
+    return "🔴";
   };
 
   if (loading) {
@@ -289,7 +322,7 @@ export const Requests = (props) => {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[200px]">Book & Buyer</TableHead>
-                  <TableHead>Location & Distance</TableHead>
+                  <TableHead>Distance & Location</TableHead>
                   <TableHead>Offer Details</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -323,17 +356,22 @@ export const Requests = (props) => {
                       </TableCell>
                       
                       <TableCell>
-                        <div className="space-y-1">
+                        <div className="space-y-2">
+                          {distance && (
+                            <div className="flex items-center gap-2">
+                              <Badge 
+                                variant="outline" 
+                                className={`${getDistanceColor(distance)} font-medium`}
+                              >
+                                <Route className="h-3 w-3 mr-1" />
+                                {distance} km {getDistanceIcon(distance)}
+                              </Badge>
+                            </div>
+                          )}
                           {request.buyer_location && (
                             <div className="text-sm flex items-start gap-1">
                               <MapPin className="h-3 w-3 mt-0.5 text-gray-500" />
-                              <span className="text-gray-600">{request.buyer_location}</span>
-                            </div>
-                          )}
-                          {distance && (
-                            <div className="text-sm flex items-center gap-1">
-                              <Navigation className="h-3 w-3 text-blue-500" />
-                              <span className="text-blue-600 font-medium">{distance} km away</span>
+                              <span className="text-gray-600 text-xs">{request.buyer_location}</span>
                             </div>
                           )}
                           {!request.buyer_location && !buyer && (
@@ -365,9 +403,15 @@ export const Requests = (props) => {
                         <div className="flex flex-col gap-2">
                           {/* Primary Actions for Pending Requests */}
                           {request.status === 'pending' && (
-                            <div className="space-x-2">
-                              <Button size="sm" onClick={() => handleAcceptRequest(request.id)}>Accept</Button>
-                              <Button variant="outline" size="sm" onClick={() => handleRejectRequest(request.id)}>Reject</Button>
+                            <div className="flex gap-1">
+                              <Button
+                                size="sm"
+                                onClick={() => setSelectedRequestForPreview(request)}
+                                className="bg-blue-600 text-white hover:bg-blue-700"
+                              >
+                                <Eye className="w-4 h-4 mr-1" />
+                                Review
+                              </Button>
                             </div>
                           )}
 
@@ -457,6 +501,18 @@ export const Requests = (props) => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Request Preview Modal */}
+      {selectedRequestForPreview && (
+        <RequestPreviewModal
+          isOpen={!!selectedRequestForPreview}
+          onClose={() => setSelectedRequestForPreview(null)}
+          request={selectedRequestForPreview}
+          onAccept={handleAcceptRequest}
+          onReject={handleRejectRequest}
+          loading={actionLoading}
+        />
+      )}
 
       {/* Chat Modal */}
       {selectedRequestForChat && (
