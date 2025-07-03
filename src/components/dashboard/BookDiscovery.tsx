@@ -36,8 +36,8 @@ interface Book {
 
 const BookDiscovery: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedGenre, setSelectedGenre] = useState<string>('');
-  const [selectedCondition, setSelectedCondition] = useState<string>('');
+  const [selectedGenre, setSelectedGenre] = useState<string>('all');
+  const [selectedCondition, setSelectedCondition] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('distance');
   const { userLocation } = useUserLocation();
 
@@ -56,11 +56,11 @@ const BookDiscovery: React.FC = () => {
         query = query.or(`title.ilike.%${searchQuery}%,author.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`);
       }
 
-      if (selectedGenre) {
+      if (selectedGenre && selectedGenre !== 'all') {
         query = query.eq('genre', selectedGenre);
       }
 
-      if (selectedCondition) {
+      if (selectedCondition && selectedCondition !== 'all') {
         query = query.eq('condition', selectedCondition);
       }
 
@@ -163,7 +163,7 @@ const BookDiscovery: React.FC = () => {
                     <SelectValue placeholder="Genre" />
                   </SelectTrigger>
                   <SelectContent className="bg-gray-800 border-gray-700">
-                    <SelectItem value="">All Genres</SelectItem>
+                    <SelectItem value="all" className="text-white">All Genres</SelectItem>
                     {genres.map(genre => (
                       <SelectItem key={genre} value={genre} className="text-white">{genre}</SelectItem>
                     ))}
@@ -175,7 +175,7 @@ const BookDiscovery: React.FC = () => {
                     <SelectValue placeholder="Condition" />
                   </SelectTrigger>
                   <SelectContent className="bg-gray-800 border-gray-700">
-                    <SelectItem value="">All Conditions</SelectItem>
+                    <SelectItem value="all" className="text-white">All Conditions</SelectItem>
                     {conditions.map(condition => (
                       <SelectItem key={condition} value={condition} className="text-white">{condition}</SelectItem>
                     ))}
@@ -200,8 +200,8 @@ const BookDiscovery: React.FC = () => {
                   variant="outline" 
                   onClick={() => {
                     setSearchQuery('');
-                    setSelectedGenre('');
-                    setSelectedCondition('');
+                    setSelectedGenre('all');
+                    setSelectedCondition('all');
                     setSortBy('distance');
                   }}
                   className="border-gray-600 text-gray-300 hover:bg-gray-700"
