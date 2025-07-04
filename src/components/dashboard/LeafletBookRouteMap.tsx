@@ -4,6 +4,7 @@ import { MapContainer, TileLayer, Marker, Polyline, Popup, Tooltip } from "react
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { locationService } from "@/services/locationService";
+import { calculateDistance } from "@/hooks/useLocationUtils";
 import { MapPin, Navigation, Clock, Car, AlertTriangle } from "lucide-react";
 
 // Fix for default markers in Leaflet with Webpack
@@ -52,22 +53,6 @@ const userIcon = new L.Icon({
   popupAnchor: [1, -34],
   shadowSize: [41, 41],
 });
-
-// Calculate distance using Haversine formula
-function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const toRad = (x: number) => (x * Math.PI) / 180;
-  const R = 6371; // Earth's radius in km
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(lat1)) *
-      Math.cos(toRad(lat2)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
 
 // Estimate travel time (assuming average speed of 40 km/h in city)
 function estimateTravelTime(distanceKm: number) {
@@ -158,7 +143,8 @@ export const LeafletBookRouteMap: React.FC<LeafletBookRouteMapProps> = ({
     (buyer.longitude + seller.longitude) / 2,
   ];
   
-  const distance = haversineDistance(
+  // Use the consistent distance calculation function
+  const distance = calculateDistance(
     buyer.latitude,
     buyer.longitude,
     seller.latitude,
@@ -177,13 +163,13 @@ export const LeafletBookRouteMap: React.FC<LeafletBookRouteMapProps> = ({
   let distanceFromUser = null;
   let distanceFromUserToSeller = null;
   if (userLocation) {
-    distanceFromUser = haversineDistance(
+    distanceFromUser = calculateDistance(
       userLocation.latitude,
       userLocation.longitude,
       buyer.latitude,
       buyer.longitude
     );
-    distanceFromUserToSeller = haversineDistance(
+    distanceFromUserToSeller = calculateDistance(
       userLocation.latitude,
       userLocation.longitude,
       seller.latitude,
@@ -197,7 +183,9 @@ export const LeafletBookRouteMap: React.FC<LeafletBookRouteMapProps> = ({
     distance: distance.toFixed(1),
     travelTime,
     direction,
-    zoom: zoomLevel
+    zoom: zoomLevel,
+    buyerCoords: [buyer.latitude, buyer.longitude],
+    sellerCoords: [seller.latitude, seller.longitude]
   });
 
   return (
@@ -359,7 +347,7 @@ export const LeafletBookRouteMap: React.FC<LeafletBookRouteMapProps> = ({
       <div className="text-center p-4 bg-gray-50 rounded-lg border text-sm text-gray-600">
         <p className="flex items-center justify-center gap-2 mb-2">
           <Navigation className="w-4 h-4" />
-          This map shows the direct distance between buyer and seller locations.
+          This map shows the direct distance between buyer and seller locations: {distance.toFixed(1)} km
         </p>
         <p className="text-xs text-gray-500">
           Actual travel route, time, and distance may vary based on roads, traffic, and transportation method.

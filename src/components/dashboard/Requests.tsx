@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,6 +27,7 @@ import { LeafletBookRouteMap } from "./LeafletBookRouteMap";
 import { ChatModal } from "./ChatModal";
 import { DeliveryConfirmationModal } from "./DeliveryConfirmationModal";
 import { DeliveryDateSelector } from "./DeliveryDateSelector";
+import { calculateDistance } from "@/hooks/useLocationUtils";
 
 interface PurchaseRequest {
   id: string;
@@ -309,6 +309,13 @@ export const Requests = (props) => {
                   const distance = canShowBuyerLocation 
                     ? calculateDistance(buyer.latitude, buyer.longitude, seller.latitude, seller.longitude)
                     : null;
+                  
+                  console.log('Request distance calculation:', {
+                    requestId: request.id,
+                    buyer,
+                    seller,
+                    distance
+                  });
                   
                   return (
                     <TableRow key={request.id}>

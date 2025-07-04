@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,6 +23,7 @@ import { useToast } from "@/hooks/use-toast";
 import { LeafletBookRouteMap } from "./LeafletBookRouteMap";
 import { ChatModal } from "./ChatModal";
 import { DeliveryConfirmationModal } from "./DeliveryConfirmationModal";
+import { calculateDistance } from "@/hooks/useLocationUtils";
 
 interface BuyerRequest {
   id: string;
@@ -238,6 +238,14 @@ export const MyRequests = ({ userId, userProfile }: MyRequestsProps) => {
                   const distance = canShowMap 
                     ? calculateDistance(buyer.latitude, buyer.longitude, seller.latitude, seller.longitude)
                     : null;
+                  
+                  console.log('MyRequest distance calculation:', {
+                    requestId: request.id,
+                    buyer,
+                    seller,
+                    distance,
+                    status: request.status
+                  });
                   
                   // Only show seller location if request is accepted or completed
                   const canShowSellerLocation = canShowMap && (request.status === 'accepted' || request.status === 'completed');
