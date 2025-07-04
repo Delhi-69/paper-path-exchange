@@ -39,7 +39,17 @@ const BookDiscovery: React.FC = () => {
   const [selectedGenre, setSelectedGenre] = useState<string>('all');
   const [selectedCondition, setSelectedCondition] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('distance');
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const { userLocation } = useUserLocation();
+
+  // Fetch current user ID
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUserId(user?.id || null);
+    };
+    getCurrentUser();
+  }, []);
 
   const { data: books = [], isLoading, refetch } = useQuery({
     queryKey: ['books', searchQuery, selectedGenre, selectedCondition, userLocation],
@@ -50,7 +60,8 @@ const BookDiscovery: React.FC = () => {
           *,
           seller:profiles!books_seller_id_fkey(full_name, average_rating, review_count)
         `)
-        .eq('status', 'available');
+        .eq('status', 'available')
+        .eq('listing_paid', true); // Only show books where seller paid security deposit
 
       if (searchQuery) {
         query = query.or(`title.ilike.%${searchQuery}%,author.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`);
@@ -92,11 +103,11 @@ const BookDiscovery: React.FC = () => {
         })
         .filter(Boolean);
 
-      // Sort books
+      // Sort books - default to distance (low to high) and handle other sorting options
       return booksWithDistance.sort((a: Book, b: Book) => {
         switch (sortBy) {
           case 'distance':
-            return (a.distance || 0) - (b.distance || 0);
+            return (a.distance || 0) - (b.distance || 0); // Low to high distance
           case 'price_low':
             return a.price_range - b.price_range;
           case 'price_high':
@@ -106,7 +117,7 @@ const BookDiscovery: React.FC = () => {
           case 'rating':
             return (b.seller?.average_rating || 0) - (a.seller?.average_rating || 0);
           default:
-            return 0;
+            return (a.distance || 0) - (b.distance || 0); // Default to distance low to high
         }
       });
     },
@@ -129,7 +140,7 @@ const BookDiscovery: React.FC = () => {
           <div>
             <h1 className="text-3xl font-bold text-white">Find Books Near You</h1>
             <p className="text-gray-400 mt-1">
-              {userLocation ? `${books.length} books within 10km` : 'Set location to see nearby books'}
+              {userLocation ? `${books.length} books within 10km (sorted by distance)` : 'Set location to see nearby books'}
             </p>
           </div>
           <Badge variant="outline" className="flex items-center gap-2 bg-green-500/10 text-green-400 border-green-500/20 px-4 py-2">
@@ -187,7 +198,7 @@ const BookDiscovery: React.FC = () => {
                     <SelectValue placeholder="Sort by" />
                   </SelectTrigger>
                   <SelectContent className="bg-gray-800 border-gray-700">
-                    <SelectItem value="distance" className="text-white">Distance</SelectItem>
+                    <SelectItem value="distance" className="text-white">Distance (Nearest First)</SelectItem>
                     <SelectItem value="price_low" className="text-white">Price: Low to High</SelectItem>
                     <SelectItem value="price_high" className="text-white">Price: High to Low</SelectItem>
                     <SelectItem value="newest" className="text-white">Newest First</SelectItem>
@@ -277,7 +288,7 @@ const BookDiscovery: React.FC = () => {
                     <div className="absolute top-3 left-3 space-y-2">
                       <Badge className="bg-black/80 text-white border-0 backdrop-blur">
                         <MapPin className="h-3 w-3 mr-1" />
-                        {book.distance}km
+                        {book.distance}km away
                       </Badge>
                       {book.delivery_charge !== undefined && (
                         <Badge 
@@ -342,13 +353,20 @@ const BookDiscovery: React.FC = () => {
                         <span>{new Date(book.created_at).toLocaleDateString()}</span>
                       </div>
                       
-                      <BookCard 
-                        book={book} 
-                        onPurchaseRequest={() => {
-                          toast.success('Purchase request sent!');
-                          refetch();
-                        }}
-                      />
+                      {/* Only show BookCard if current user is not the seller */}
+                      {currentUserId && currentUserId !== book.seller_id ? (
+                        <BookCard 
+                          book={book} 
+                          onPurchaseRequest={() => {
+                            toast.success('Purchase request sent!');
+                            refetch();
+                          }}
+                        />
+                      ) : (
+                        <Badge variant="outline" className="text-gray-500">
+                          {currentUserId === book.seller_id ? 'Your Book' : 'Login to Request'}
+                        </Badge>
+                      )}
                     </div>
 
                     {book.location_address && (
