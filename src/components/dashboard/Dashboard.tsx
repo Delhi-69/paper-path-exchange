@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { User } from "@supabase/supabase-js";
-import { UberHeader } from "./UberHeader";
-import { UberMobileNav } from "./UberMobileNav";
+import { Header } from "./Header";
+import { MobileHeader } from "./MobileHeader";
+import { MobileBottomNav } from "./MobileBottomNav";
 import BookDiscovery from "./BookDiscovery";
 import { SellBook } from "./SellBook";
 import { MyBooks } from "./MyBooks";
@@ -37,6 +38,7 @@ export const Dashboard = ({ user }: DashboardProps) => {
           return;
         }
 
+        // Check admin_users table first
         const { data: adminData, error } = await supabase
           .from('admin_users')
           .select('user_id')
@@ -47,11 +49,13 @@ export const Dashboard = ({ user }: DashboardProps) => {
           setIsAdmin(true);
           console.log('User is admin via admin_users table');
         } else {
+          // Fallback check for specific admin email
           const isAdminByEmail = currentUser.email === "arnabmanna203@gmail.com";
           if (isAdminByEmail) {
             setIsAdmin(true);
             console.log('User is admin via email check');
             
+            // Optionally add them to admin_users table
             const { error: insertError } = await supabase
               .from('admin_users')
               .insert({ user_id: currentUser.id })
@@ -72,6 +76,7 @@ export const Dashboard = ({ user }: DashboardProps) => {
 
     checkAdminStatus();
 
+    // Fetch user profile if user exists
     const fetchProfile = async () => {
       if (user?.id) {
         const { data, error } = await supabase
@@ -86,6 +91,7 @@ export const Dashboard = ({ user }: DashboardProps) => {
     };
     fetchProfile();
 
+    // Register service worker for PWA
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js')
         .then((registration) => {
@@ -123,31 +129,41 @@ export const Dashboard = ({ user }: DashboardProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
+    <div className="min-h-screen bg-gray-900">
       <PWAInstallPrompt />
       <OfflineIndicator />
       
-      {/* Uber-style Header */}
-      <UberHeader 
-        currentView={currentView} 
-        setCurrentView={setCurrentView} 
-        isAdmin={isAdmin}
-        user={user}
-      />
+      {/* Desktop Header */}
+      <div className="hidden md:block">
+        <Header 
+          currentView={currentView} 
+          setCurrentView={setCurrentView} 
+          isAdmin={isAdmin}
+        />
+      </div>
+      
+      {/* Mobile Header */}
+      <div className="md:hidden">
+        <MobileHeader 
+          currentView={currentView} 
+          setCurrentView={setCurrentView}
+          isAdmin={isAdmin}
+        />
+      </div>
 
-      {/* Main Content with Uber-style transitions */}
-      <main className="relative">
-        <div className="transition-all duration-500 ease-in-out transform">
-          {renderContent()}
-        </div>
+      {/* Main Content */}
+      <main className="pb-20 md:pb-6">
+        {renderContent()}
       </main>
 
-      {/* Uber-style Mobile Navigation */}
-      <UberMobileNav 
-        currentView={currentView} 
-        setCurrentView={setCurrentView}
-        isAdmin={isAdmin}
-      />
+      {/* Mobile Bottom Navigation */}
+      <div className="md:hidden">
+        <MobileBottomNav 
+          currentView={currentView} 
+          setCurrentView={setCurrentView}
+          isAdmin={isAdmin}
+        />
+      </div>
     </div>
   );
 };

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,13 +18,12 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge";
-import { User, Book, MapPin, MessageSquare, Package, Calendar, Navigation, AlertCircle, ShoppingCart, Route } from "lucide-react";
+import { User, Book, MapPin, MessageSquare, Package, Calendar, Navigation, AlertCircle, ShoppingCart } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { LeafletBookRouteMap } from "./LeafletBookRouteMap";
 import { ChatModal } from "./ChatModal";
 import { DeliveryConfirmationModal } from "./DeliveryConfirmationModal";
-import { EnhancedLocationDisplay } from "./EnhancedLocationDisplay";
 
 interface BuyerRequest {
   id: string;
@@ -143,19 +143,6 @@ export const MyRequests = ({ userId, userProfile }: MyRequestsProps) => {
     return Math.round(distance * 10) / 10; // Round to 1 decimal place
   };
 
-  const getDistanceColor = (distance: number) => {
-    if (distance <= 2) return "text-green-600 bg-green-50 border-green-200";
-    if (distance <= 5) return "text-blue-600 bg-blue-50 border-blue-200";
-    if (distance <= 10) return "text-orange-600 bg-orange-50 border-orange-200";
-    return "text-red-600 bg-red-50 border-red-200";
-  };
-
-  const getDistanceIcon = (distance: number) => {
-    if (distance <= 5) return "🟢";
-    if (distance <= 10) return "🟡";
-    return "🔴";
-  };
-
   if (loading) {
     return (
       <Card>
@@ -232,7 +219,7 @@ export const MyRequests = ({ userId, userProfile }: MyRequestsProps) => {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[200px]">Book & Seller</TableHead>
-                  <TableHead>Distance & Location</TableHead>
+                  <TableHead>Location & Distance</TableHead>
                   <TableHead>Your Offer</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -266,22 +253,17 @@ export const MyRequests = ({ userId, userProfile }: MyRequestsProps) => {
                       </TableCell>
                       
                       <TableCell>
-                        <div className="space-y-2">
-                          {distance && (
-                            <div className="flex items-center gap-2">
-                              <Badge 
-                                variant="outline" 
-                                className={`${getDistanceColor(distance)} font-medium`}
-                              >
-                                <Route className="h-3 w-3 mr-1" />
-                                {distance} km {getDistanceIcon(distance)}
-                              </Badge>
-                            </div>
-                          )}
+                        <div className="space-y-1">
                           {request.seller_location && (
                             <div className="text-sm flex items-start gap-1">
                               <MapPin className="h-3 w-3 mt-0.5 text-gray-500" />
-                              <span className="text-gray-600 text-xs">{request.seller_location}</span>
+                              <span className="text-gray-600">{request.seller_location}</span>
+                            </div>
+                          )}
+                          {distance && (
+                            <div className="text-sm flex items-center gap-1">
+                              <Navigation className="h-3 w-3 text-blue-500" />
+                              <span className="text-blue-600 font-medium">{distance} km away</span>
                             </div>
                           )}
                           {!request.seller_location && !seller && (
@@ -338,7 +320,7 @@ export const MyRequests = ({ userId, userProfile }: MyRequestsProps) => {
                                 </Button>
                               )}
 
-                              {/* View Map with Enhanced Location Display */}
+                              {/* View Map */}
                               <Dialog>
                                 <DialogTrigger asChild>
                                   <Button
@@ -348,29 +330,15 @@ export const MyRequests = ({ userId, userProfile }: MyRequestsProps) => {
                                     className="bg-purple-600 text-white hover:bg-purple-700 disabled:bg-gray-300"
                                   >
                                     <MapPin className="w-4 h-4 mr-1" />
-                                    Route
+                                    Map
                                   </Button>
                                 </DialogTrigger>
-                                <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+                                <DialogContent className="max-w-4xl max-h-[90vh]">
                                   <DialogHeader>
-                                    <DialogTitle>Route & Distance Information</DialogTitle>
+                                    <DialogTitle>Buyer & Seller Locations</DialogTitle>
                                   </DialogHeader>
                                   {canShowMap && (
-                                    <div className="space-y-6">
-                                      <EnhancedLocationDisplay
-                                        buyerLocation={buyer ? {
-                                          latitude: buyer.latitude,
-                                          longitude: buyer.longitude,
-                                          address: userProfile?.location_address
-                                        } : undefined}
-                                        sellerLocation={seller ? {
-                                          latitude: seller.latitude,
-                                          longitude: seller.longitude,
-                                          address: request.seller_location
-                                        } : undefined}
-                                        showRoute={true}
-                                        compact={false}
-                                      />
+                                    <div className="mt-4">
                                       <LeafletBookRouteMap
                                         buyer={buyer}
                                         seller={seller}
