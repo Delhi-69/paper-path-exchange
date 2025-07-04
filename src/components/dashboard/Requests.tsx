@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,7 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, Circle, User, Book, MapPin, MessageSquare, Package, Calendar, Navigation, AlertCircle } from "lucide-react";
+import { CheckCircle, Circle, User, Book, MapPin, MessageSquare, Package, Calendar, Navigation, AlertCircle, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { BookRouteMap } from "./BookRouteMap";
@@ -304,8 +305,8 @@ export const Requests = (props) => {
                     ? { latitude: Number(request.seller_latitude), longitude: Number(request.seller_longitude) }
                     : null;
                   
-                  const canShowMap = buyer && seller;
-                  const distance = canShowMap 
+                  const canShowBuyerLocation = buyer && seller;
+                  const distance = canShowBuyerLocation 
                     ? calculateDistance(buyer.latitude, buyer.longitude, seller.latitude, seller.longitude)
                     : null;
                   
@@ -365,9 +366,48 @@ export const Requests = (props) => {
                         <div className="flex flex-col gap-2">
                           {/* Primary Actions for Pending Requests */}
                           {request.status === 'pending' && (
-                            <div className="space-x-2">
-                              <Button size="sm" onClick={() => handleAcceptRequest(request.id)}>Accept</Button>
-                              <Button variant="outline" size="sm" onClick={() => handleRejectRequest(request.id)}>Reject</Button>
+                            <div className="flex flex-col gap-2">
+                              {/* View Buyer Location Before Accepting */}
+                              {canShowBuyerLocation && (
+                                <Dialog>
+                                  <DialogTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="bg-purple-600 text-white hover:bg-purple-700 w-full"
+                                    >
+                                      <Eye className="w-4 h-4 mr-1" />
+                                      View Buyer Location
+                                    </Button>
+                                  </DialogTrigger>
+                                  <DialogContent className="max-w-4xl max-h-[90vh]">
+                                    <DialogHeader>
+                                      <DialogTitle>Buyer Location - Review Before Accepting</DialogTitle>
+                                    </DialogHeader>
+                                    <div className="mt-4">
+                                      <div className="mb-4 p-4 bg-blue-50 rounded-lg">
+                                        <p className="text-sm text-blue-800">
+                                          <strong>Distance:</strong> {distance} km from your location
+                                        </p>
+                                        <p className="text-sm text-blue-600 mt-1">
+                                          Review the buyer's location before accepting this request
+                                        </p>
+                                      </div>
+                                      <LeafletBookRouteMap
+                                        buyer={buyer}
+                                        seller={seller}
+                                        showUserLocation={false}
+                                      />
+                                    </div>
+                                  </DialogContent>
+                                </Dialog>
+                              )}
+                              
+                              {/* Accept/Reject Buttons */}
+                              <div className="space-x-2">
+                                <Button size="sm" onClick={() => handleAcceptRequest(request.id)}>Accept</Button>
+                                <Button variant="outline" size="sm" onClick={() => handleRejectRequest(request.id)}>Reject</Button>
+                              </div>
                             </div>
                           )}
 
@@ -411,24 +451,24 @@ export const Requests = (props) => {
                                 </Button>
                               )}
 
-                              {/* View Map */}
+                              {/* View Full Map (after acceptance) */}
                               <Dialog>
                                 <DialogTrigger asChild>
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    disabled={!canShowMap}
+                                    disabled={!canShowBuyerLocation}
                                     className="bg-purple-600 text-white hover:bg-purple-700 disabled:bg-gray-300"
                                   >
                                     <MapPin className="w-4 h-4 mr-1" />
-                                    Map
+                                    Full Map
                                   </Button>
                                 </DialogTrigger>
                                 <DialogContent className="max-w-4xl max-h-[90vh]">
                                   <DialogHeader>
-                                    <DialogTitle>Buyer & Seller Locations</DialogTitle>
+                                    <DialogTitle>Complete Route Map</DialogTitle>
                                   </DialogHeader>
-                                  {canShowMap && (
+                                  {canShowBuyerLocation && (
                                     <div className="mt-4">
                                       <LeafletBookRouteMap
                                         buyer={buyer}

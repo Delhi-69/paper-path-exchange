@@ -18,7 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge";
-import { User, Book, MapPin, MessageSquare, Package, Calendar, Navigation, AlertCircle, ShoppingCart } from "lucide-react";
+import { User, Book, MapPin, MessageSquare, Package, Calendar, Navigation, AlertCircle, ShoppingCart, Eye, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { LeafletBookRouteMap } from "./LeafletBookRouteMap";
@@ -239,6 +239,9 @@ export const MyRequests = ({ userId, userProfile }: MyRequestsProps) => {
                     ? calculateDistance(buyer.latitude, buyer.longitude, seller.latitude, seller.longitude)
                     : null;
                   
+                  // Only show seller location if request is accepted or completed
+                  const canShowSellerLocation = canShowMap && (request.status === 'accepted' || request.status === 'completed');
+                  
                   return (
                     <TableRow key={request.id}>
                       <TableCell>
@@ -254,19 +257,29 @@ export const MyRequests = ({ userId, userProfile }: MyRequestsProps) => {
                       
                       <TableCell>
                         <div className="space-y-1">
-                          {request.seller_location && (
-                            <div className="text-sm flex items-start gap-1">
-                              <MapPin className="h-3 w-3 mt-0.5 text-gray-500" />
-                              <span className="text-gray-600">{request.seller_location}</span>
+                          {/* Show seller location only if accepted/completed */}
+                          {request.status === 'pending' ? (
+                            <div className="text-sm flex items-center gap-1 text-gray-400">
+                              <Lock className="h-3 w-3" />
+                              <span>Location visible after acceptance</span>
                             </div>
+                          ) : (
+                            <>
+                              {request.seller_location && (
+                                <div className="text-sm flex items-start gap-1">
+                                  <MapPin className="h-3 w-3 mt-0.5 text-gray-500" />
+                                  <span className="text-gray-600">{request.seller_location}</span>
+                                </div>
+                              )}
+                              {distance && (
+                                <div className="text-sm flex items-center gap-1">
+                                  <Navigation className="h-3 w-3 text-blue-500" />
+                                  <span className="text-blue-600 font-medium">{distance} km away</span>
+                                </div>
+                              )}
+                            </>
                           )}
-                          {distance && (
-                            <div className="text-sm flex items-center gap-1">
-                              <Navigation className="h-3 w-3 text-blue-500" />
-                              <span className="text-blue-600 font-medium">{distance} km away</span>
-                            </div>
-                          )}
-                          {!request.seller_location && !seller && (
+                          {request.status !== 'pending' && !request.seller_location && !seller && (
                             <div className="text-sm text-gray-400">No location provided</div>
                           )}
                         </div>
@@ -320,33 +333,40 @@ export const MyRequests = ({ userId, userProfile }: MyRequestsProps) => {
                                 </Button>
                               )}
 
-                              {/* View Map */}
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    disabled={!canShowMap}
-                                    className="bg-purple-600 text-white hover:bg-purple-700 disabled:bg-gray-300"
-                                  >
-                                    <MapPin className="w-4 h-4 mr-1" />
-                                    Map
-                                  </Button>
-                                </DialogTrigger>
-                                <DialogContent className="max-w-4xl max-h-[90vh]">
-                                  <DialogHeader>
-                                    <DialogTitle>Buyer & Seller Locations</DialogTitle>
-                                  </DialogHeader>
-                                  {canShowMap && (
+                              {/* View Seller Location (only after acceptance) */}
+                              {canShowSellerLocation && (
+                                <Dialog>
+                                  <DialogTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="bg-purple-600 text-white hover:bg-purple-700"
+                                    >
+                                      <Eye className="w-4 h-4 mr-1" />
+                                      View Route
+                                    </Button>
+                                  </DialogTrigger>
+                                  <DialogContent className="max-w-4xl max-h-[90vh]">
+                                    <DialogHeader>
+                                      <DialogTitle>Delivery Route - Buyer to Seller</DialogTitle>
+                                    </DialogHeader>
                                     <div className="mt-4">
+                                      <div className="mb-4 p-4 bg-green-50 rounded-lg">
+                                        <p className="text-sm text-green-800">
+                                          <strong>Status:</strong> Request Accepted - You can now see the seller's location
+                                        </p>
+                                        <p className="text-sm text-green-600 mt-1">
+                                          Distance: {distance} km | Seller: {request.seller_name}
+                                        </p>
+                                      </div>
                                       <LeafletBookRouteMap
                                         buyer={buyer}
                                         seller={seller}
                                       />
                                     </div>
-                                  )}
-                                </DialogContent>
-                              </Dialog>
+                                  </DialogContent>
+                                </Dialog>
+                              )}
                             </div>
                           )}
 
