@@ -6,7 +6,7 @@ import { Header } from "./Header";
 import { MobileHeader } from "./MobileHeader";
 import { MobileBottomNav } from "./MobileBottomNav";
 import BookDiscovery from "./BookDiscovery";
-import SellBook from "./SellBook";
+import { SellBook } from "./SellBook";
 import MyBooks from "./MyBooks";
 import Requests from "./Requests";
 import MyRequests from "./MyRequests";
@@ -25,7 +25,8 @@ export type DashboardTab =
   | "profile" 
   | "notifications"
   | "transactions"
-  | "admin";
+  | "admin"
+  | "preferences";
 
 export const Dashboard = () => {
   const [activeTab, setActiveTab] = useState<DashboardTab>("discover");
