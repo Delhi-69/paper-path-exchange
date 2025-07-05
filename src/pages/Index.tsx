@@ -47,7 +47,7 @@ const Index = () => {
     return <AuthForm />;
   }
 
-  return <Dashboard user={user} />;
+  return <Dashboard />;
 };
 
 export default Index;

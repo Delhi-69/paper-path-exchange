@@ -1,18 +1,19 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Header } from "./Header";
 import { MobileHeader } from "./MobileHeader";
 import { MobileBottomNav } from "./MobileBottomNav";
-import { BookDiscovery } from "./BookDiscovery";
-import { SellBook } from "./SellBook";
-import { MyBooks } from "./MyBooks";
-import { Requests } from "./Requests";
-import { MyRequests } from "./MyRequests";
-import { Profile } from "./Profile";
-import { NotificationCenter } from "./NotificationCenter";
-import { TransactionHistory } from "./TransactionHistory";
-import { AdminDashboard } from "./AdminDashboard";
+import BookDiscovery from "./BookDiscovery";
+import SellBook from "./SellBook";
+import MyBooks from "./MyBooks";
+import Requests from "./Requests";
+import MyRequests from "./MyRequests";
+import Profile from "./Profile";
+import NotificationCenter from "./NotificationCenter";
+import TransactionHistory from "./TransactionHistory";
+import AdminDashboard from "./AdminDashboard";
 import { PurchaseRequestNotifications } from "./PurchaseRequestNotifications";
 
 export type DashboardTab = 
@@ -74,25 +75,25 @@ export const Dashboard = () => {
   const renderTabContent = () => {
     switch (activeTab) {
       case "discover":
-        return <BookDiscovery userId={user?.id} userProfile={userProfile} />;
+        return <BookDiscovery />;
       case "sell":
-        return <SellBook userId={user?.id} userProfile={userProfile} />;
+        return <SellBook />;
       case "my-books":
-        return <MyBooks userId={user?.id} />;
+        return <MyBooks />;
       case "requests":
-        return <Requests userId={user?.id} userProfile={userProfile} />;
+        return <Requests />;
       case "my-requests":
-        return <MyRequests userId={user?.id} userProfile={userProfile} />;
+        return <MyRequests />;
       case "profile":
-        return <Profile userId={user?.id} />;
+        return <Profile user={user} />;
       case "notifications":
         return <NotificationCenter />;
       case "transactions":
-        return <TransactionHistory userId={user?.id} />;
+        return <TransactionHistory />;
       case "admin":
         return isAdmin ? <AdminDashboard /> : <div>Access denied</div>;
       default:
-        return <BookDiscovery userId={user?.id} userProfile={userProfile} />;
+        return <BookDiscovery />;
     }
   };
 
@@ -112,16 +113,19 @@ export const Dashboard = () => {
       {/* Desktop Header */}
       <div className="hidden md:block">
         <Header 
-          activeTab={activeTab} 
-          setActiveTab={setActiveTab} 
-          userProfile={userProfile}
+          currentView={activeTab} 
+          setCurrentView={setActiveTab} 
           isAdmin={isAdmin}
         />
       </div>
       
       {/* Mobile Header */}
       <div className="md:hidden">
-        <MobileHeader userProfile={userProfile} />
+        <MobileHeader 
+          currentView={activeTab}
+          setCurrentView={setActiveTab}
+          isAdmin={isAdmin}
+        />
       </div>
 
       {/* Main Content */}
@@ -132,8 +136,8 @@ export const Dashboard = () => {
       {/* Mobile Bottom Navigation */}
       <div className="md:hidden">
         <MobileBottomNav 
-          activeTab={activeTab} 
-          setActiveTab={setActiveTab}
+          currentView={activeTab} 
+          setCurrentView={setActiveTab}
           isAdmin={isAdmin}
         />
       </div>
