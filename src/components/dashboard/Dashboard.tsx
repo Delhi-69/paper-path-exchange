@@ -15,6 +15,7 @@ import { NotificationCenter } from "./NotificationCenter";
 import { TransactionHistory } from "./TransactionHistory";
 import { AdminDashboard } from "./AdminDashboard";
 import { PurchaseRequestNotifications } from "./PurchaseRequestNotifications";
+import { NotificationTest } from "./NotificationTest";
 
 export type DashboardTab = 
   | "discover" 
@@ -29,7 +30,7 @@ export type DashboardTab =
   | "preferences";
 
 export const Dashboard = () => {
-  const [activeTab, setActiveTab] = useState<DashboardTab>("discover");
+  const [activeTab, setActiveTab] = useState<DashboardTab>("notifications");
   const [user, setUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -44,6 +45,7 @@ export const Dashboard = () => {
       }
       
       if (user) {
+        console.log('Current user:', user.id);
         setUser(user);
         
         // Fetch user profile
@@ -56,6 +58,7 @@ export const Dashboard = () => {
         if (profileError) {
           console.error('Error fetching profile:', profileError);
         } else {
+          console.log('User profile loaded:', profile);
           setUserProfile(profile);
         }
 
@@ -67,6 +70,7 @@ export const Dashboard = () => {
           .single();
         
         setIsAdmin(!!adminData);
+        console.log('User is admin:', !!adminData);
       }
     };
 
@@ -88,7 +92,12 @@ export const Dashboard = () => {
       case "profile":
         return <Profile user={user} />;
       case "notifications":
-        return <NotificationCenter />;
+        return (
+          <div className="space-y-6">
+            <NotificationTest />
+            <NotificationCenter />
+          </div>
+        );
       case "transactions":
         return <TransactionHistory />;
       case "admin":
