@@ -5,8 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Bell, Check, X, Trash2 } from "lucide-react";
-import { useNotificationSound } from "@/hooks/useNotificationSound";
+import { Bell, Check, Trash2 } from "lucide-react";
 
 interface Notification {
   id: string;
@@ -23,18 +22,31 @@ interface Notification {
 export const NotificationCenter = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
   const { toast } = useToast();
-  const { playNotificationSound } = useNotificationSound();
 
-  const fetchNotifications = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        console.log('No user found, skipping notification fetch');
-        setLoading(false);
+  // Get current user
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error) {
+        console.error('Error getting user:', error);
         return;
       }
+      setUser(user);
+    };
+    getCurrentUser();
+  }, []);
 
+  // Fetch notifications
+  const fetchNotifications = async () => {
+    if (!user?.id) {
+      console.log('No user ID available for fetching notifications');
+      setLoading(false);
+      return;
+    }
+
+    try {
       console.log('Fetching notifications for user:', user.id);
 
       const { data, error } = await supabase
@@ -45,7 +57,12 @@ export const NotificationCenter = () => {
 
       if (error) {
         console.error('Error fetching notifications:', error);
-        throw error;
+        toast({
+          title: "Error",
+          description: "Failed to fetch notifications",
+          variant: "destructive",
+        });
+        return;
       }
       
       console.log('Fetched notifications:', data?.length || 0);
@@ -75,23 +92,46 @@ export const NotificationCenter = () => {
     }
   };
 
+  // Fetch notifications when user is available
   useEffect(() => {
-    fetchNotifications();
+    if (user?.id) {
+      fetchNotifications();
+    }
+  }, [user?.id]);
 
-    // Set up real-time subscription for notifications
-    const notificationChannel = supabase
-      .channel('notifications_center')
+  // Set up real-time subscription
+  useEffect(() => {
+    if (!user?.id) return;
+
+    console.log('Setting up real-time subscription for notifications');
+
+    const channel = supabase
+      .channel('notifications_realtime')
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
-        table: 'notifications'
+        table: 'notifications',
+        filter: `user_id=eq.${user.id}`
       }, (payload) => {
         console.log('New notification received:', payload);
-        playNotificationSound();
-        fetchNotifications();
         
-        // Show toast for new notification
         const newNotification = payload.new;
+        const mappedNotification: Notification = {
+          id: newNotification.id,
+          type: newNotification.type,
+          title: newNotification.title,
+          message: newNotification.message,
+          read: newNotification.read || false,
+          priority: newNotification.priority || 'normal',
+          action_url: newNotification.action_url || undefined,
+          created_at: newNotification.created_at || '',
+          related_id: newNotification.related_id || undefined
+        };
+
+        // Add to notifications list
+        setNotifications(prev => [mappedNotification, ...prev]);
+        
+        // Show toast
         toast({
           title: newNotification.title,
           description: newNotification.message,
@@ -101,7 +141,8 @@ export const NotificationCenter = () => {
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
-        table: 'notifications'
+        table: 'notifications',
+        filter: `user_id=eq.${user.id}`
       }, (payload) => {
         console.log('Notification updated:', payload);
         fetchNotifications();
@@ -112,9 +153,9 @@ export const NotificationCenter = () => {
 
     return () => {
       console.log('Cleaning up notification subscription');
-      supabase.removeChannel(notificationChannel);
+      supabase.removeChannel(channel);
     };
-  }, [playNotificationSound, toast]);
+  }, [user?.id, toast]);
 
   const markAsRead = async (notificationId: string) => {
     try {
@@ -127,10 +168,15 @@ export const NotificationCenter = () => {
 
       if (error) {
         console.error('Error marking notification as read:', error);
-        throw error;
+        toast({
+          title: "Error",
+          description: "Failed to mark notification as read",
+          variant: "destructive",
+        });
+        return;
       }
 
-      // Update local state immediately for better UX
+      // Update local state
       setNotifications(notifications.map(n => 
         n.id === notificationId ? { ...n, read: true } : n
       ));
@@ -157,17 +203,22 @@ export const NotificationCenter = () => {
 
       if (error) {
         console.error('Error deleting notification:', error);
-        throw error;
+        toast({
+          title: "Error",
+          description: "Failed to delete notification",
+          variant: "destructive",
+        });
+        return;
       }
 
-      // Update local state immediately for better UX
+      // Update local state
       setNotifications(notifications.filter(n => n.id !== notificationId));
       
       console.log('Notification deleted successfully');
       
       toast({
-        title: "Notification deleted",
-        description: "Notification has been removed",
+        title: "Success",
+        description: "Notification deleted",
       });
     } catch (error: any) {
       console.error('Error in deleteNotification:', error);
@@ -180,10 +231,9 @@ export const NotificationCenter = () => {
   };
 
   const markAllAsRead = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+    if (!user?.id) return;
 
+    try {
       console.log('Marking all notifications as read for user:', user.id);
 
       const { error } = await supabase
@@ -194,10 +244,15 @@ export const NotificationCenter = () => {
 
       if (error) {
         console.error('Error marking all as read:', error);
-        throw error;
+        toast({
+          title: "Error",
+          description: "Failed to mark all as read",
+          variant: "destructive",
+        });
+        return;
       }
 
-      // Update local state immediately
+      // Update local state
       setNotifications(notifications.map(n => ({ ...n, read: true })));
       
       console.log('All notifications marked as read successfully');
@@ -218,11 +273,11 @@ export const NotificationCenter = () => {
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'urgent': return 'bg-red-100 text-red-800';
-      case 'high': return 'bg-orange-100 text-orange-800';
-      case 'normal': return 'bg-blue-100 text-blue-800';
-      case 'low': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'urgent': return 'bg-red-100 text-red-800 border-red-200';
+      case 'high': return 'bg-orange-100 text-orange-800 border-orange-200';
+      case 'normal': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'low': return 'bg-gray-100 text-gray-800 border-gray-200';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
 
@@ -236,6 +291,18 @@ export const NotificationCenter = () => {
     );
   }
 
+  if (!user) {
+    return (
+      <Card>
+        <CardContent className="text-center py-12">
+          <Bell className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Please sign in</h3>
+          <p className="text-gray-600">You need to be signed in to view notifications</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <Card>
@@ -245,8 +312,8 @@ export const NotificationCenter = () => {
               <Bell className="h-5 w-5" />
               <span>Notifications</span>
               {unreadCount > 0 && (
-                <Badge className="bg-red-500 text-white animate-pulse">
-                  {unreadCount}
+                <Badge variant="destructive" className="animate-pulse">
+                  {unreadCount} new
                 </Badge>
               )}
             </CardTitle>
@@ -265,7 +332,7 @@ export const NotificationCenter = () => {
           <CardContent className="text-center py-12">
             <Bell className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">No notifications</h3>
-            <p className="text-gray-600">You're all caught up!</p>
+            <p className="text-gray-600">You're all caught up! New notifications will appear here.</p>
           </CardContent>
         </Card>
       ) : (
@@ -273,21 +340,28 @@ export const NotificationCenter = () => {
           {notifications.map((notification) => (
             <Card 
               key={notification.id} 
-              className={`${!notification.read ? 'border-l-4 border-l-blue-500 bg-blue-50 animate-fade-in' : ''} transition-all duration-300`}
+              className={`transition-all duration-200 hover:shadow-md ${
+                !notification.read 
+                  ? 'border-l-4 border-l-blue-500 bg-blue-50' 
+                  : 'bg-white'
+              }`}
             >
               <CardContent className="p-4">
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-1">
-                      <h4 className="font-semibold">{notification.title}</h4>
-                      <Badge className={getPriorityColor(notification.priority)}>
+                    <div className="flex items-center space-x-2 mb-2">
+                      <h4 className="font-semibold text-gray-900">{notification.title}</h4>
+                      <Badge 
+                        variant="outline" 
+                        className={getPriorityColor(notification.priority)}
+                      >
                         {notification.priority}
                       </Badge>
                       {!notification.read && (
-                        <Badge variant="secondary" className="animate-pulse">New</Badge>
+                        <Badge variant="destructive" className="text-xs">New</Badge>
                       )}
                     </div>
-                    <p className="text-sm text-gray-600 mb-2">{notification.message}</p>
+                    <p className="text-sm text-gray-600 mb-3">{notification.message}</p>
                     <p className="text-xs text-gray-400">
                       {new Date(notification.created_at).toLocaleString()}
                     </p>
@@ -308,6 +382,7 @@ export const NotificationCenter = () => {
                       size="sm"
                       onClick={() => deleteNotification(notification.id)}
                       title="Delete notification"
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
