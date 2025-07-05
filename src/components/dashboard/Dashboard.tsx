@@ -7,13 +7,13 @@ import { MobileHeader } from "./MobileHeader";
 import { MobileBottomNav } from "./MobileBottomNav";
 import BookDiscovery from "./BookDiscovery";
 import { SellBook } from "./SellBook";
-import MyBooks from "./MyBooks";
-import Requests from "./Requests";
-import MyRequests from "./MyRequests";
-import Profile from "./Profile";
-import NotificationCenter from "./NotificationCenter";
-import TransactionHistory from "./TransactionHistory";
-import AdminDashboard from "./AdminDashboard";
+import { MyBooks } from "./MyBooks";
+import { Requests } from "./Requests";
+import { MyRequests } from "./MyRequests";
+import { Profile } from "./Profile";
+import { NotificationCenter } from "./NotificationCenter";
+import { TransactionHistory } from "./TransactionHistory";
+import { AdminDashboard } from "./AdminDashboard";
 import { PurchaseRequestNotifications } from "./PurchaseRequestNotifications";
 
 export type DashboardTab = 
