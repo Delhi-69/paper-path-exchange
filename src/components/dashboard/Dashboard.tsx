@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -85,7 +86,7 @@ export const Dashboard = () => {
       case "my-books":
         return <MyBooks />;
       case "requests":
-        return <Requests />;
+        return <Requests userId={user?.id} userProfile={userProfile} />;
       case "my-requests":
         return <MyRequests />;
       case "profile":
