@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -46,25 +47,38 @@ interface BuyerRequest {
   message?: string;
 }
 
-interface MyRequestsProps {
-  userId?: string;
-  userProfile?: any;
-}
-
-export const MyRequests = ({ userId, userProfile }: MyRequestsProps) => {
+export const MyRequests = () => {
   const [requests, setRequests] = useState<BuyerRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedRequestForChat, setSelectedRequestForChat] = useState<string | null>(null);
   const [selectedRequestForDelivery, setSelectedRequestForDelivery] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [userProfile, setUserProfile] = useState<any>(null);
   const { toast } = useToast();
 
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserId(user.id);
+        
+        // Get user profile for location
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+        
+        setUserProfile(profile);
+      }
+    };
+    
+    getCurrentUser();
+  }, []);
+
   const fetchMyRequests = async () => {
-    if (!userId) {
-      setError("User ID not provided");
-      setLoading(false);
-      return;
-    }
+    if (!userId) return;
 
     setLoading(true);
     setError(null);
@@ -127,7 +141,9 @@ export const MyRequests = ({ userId, userProfile }: MyRequestsProps) => {
   };
 
   useEffect(() => {
-    fetchMyRequests();
+    if (userId) {
+      fetchMyRequests();
+    }
   }, [userId]);
 
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -408,7 +424,7 @@ export const MyRequests = ({ userId, userProfile }: MyRequestsProps) => {
       </Card>
 
       {/* Chat Modal */}
-      {selectedRequestForChat && (
+      {selectedRequestForChat && userId && (
         <ChatModal
           isOpen={!!selectedRequestForChat}
           onClose={() => setSelectedRequestForChat(null)}

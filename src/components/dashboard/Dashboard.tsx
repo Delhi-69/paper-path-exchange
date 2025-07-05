@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -30,7 +29,7 @@ export type DashboardTab =
   | "preferences";
 
 export const Dashboard = () => {
-  const [activeTab, setActiveTab] = useState<DashboardTab>("notifications");
+  const [activeTab, setActiveTab] = useState<DashboardTab>("discover");
   const [user, setUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);

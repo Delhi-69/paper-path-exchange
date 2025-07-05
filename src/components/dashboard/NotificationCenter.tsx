@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -105,154 +106,13 @@ export const NotificationCenter = () => {
         console.log('Notification updated:', payload);
         fetchNotifications();
       })
-      .on('postgres_changes', {
-        event: 'DELETE',
-        schema: 'public',
-        table: 'notifications'
-      }, (payload) => {
-        console.log('Notification deleted:', payload);
-        fetchNotifications();
-      })
       .subscribe((status) => {
         console.log('Notification subscription status:', status);
       });
 
-    // Set up real-time subscription for purchase request updates
-    const purchaseRequestChannel = supabase
-      .channel('purchase_requests_updates')
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'purchase_requests'
-      }, async (payload) => {
-        console.log('Purchase request updated:', payload);
-        
-        const updatedRequest = payload.new;
-        const oldRequest = payload.old;
-        
-        // Get current user
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
-        // Check if status changed
-        if (oldRequest.status !== updatedRequest.status) {
-          // Get book and user details for notification
-          const { data: bookData } = await supabase
-            .from('books')
-            .select('title, seller_id')
-            .eq('id', updatedRequest.book_id)
-            .single();
-
-          const { data: buyerProfile } = await supabase
-            .from('profiles')
-            .select('full_name')
-            .eq('id', updatedRequest.buyer_id)
-            .single();
-
-          const { data: sellerProfile } = await supabase
-            .from('profiles')
-            .select('full_name')
-            .eq('id', updatedRequest.seller_id)
-            .single();
-
-          // Create notifications based on status change
-          let notifications = [];
-          
-          if (updatedRequest.status === 'accepted' && oldRequest.status === 'pending') {
-            // Notify buyer that request was accepted
-            if (user.id !== updatedRequest.seller_id) {
-              notifications.push({
-                user_id: updatedRequest.buyer_id,
-                type: 'request_accepted',
-                title: 'Request Accepted!',
-                message: `${sellerProfile?.full_name || 'Seller'} accepted your request for "${bookData?.title}". You can now chat and arrange delivery.`,
-                related_id: updatedRequest.id,
-                priority: 'high'
-              });
-            }
-          } else if (updatedRequest.status === 'rejected' && oldRequest.status === 'pending') {
-            // Notify buyer that request was rejected
-            if (user.id !== updatedRequest.seller_id) {
-              notifications.push({
-                user_id: updatedRequest.buyer_id,
-                type: 'request_rejected',
-                title: 'Request Declined',
-                message: `${sellerProfile?.full_name || 'Seller'} declined your request for "${bookData?.title}".`,
-                related_id: updatedRequest.id,
-                priority: 'normal'
-              });
-            }
-          } else if (updatedRequest.status === 'completed' && oldRequest.status === 'accepted') {
-            // Notify both parties that transaction is completed
-            notifications.push(
-              {
-                user_id: updatedRequest.buyer_id,
-                type: 'transaction_completed',
-                title: 'Transaction Completed!',
-                message: `Your purchase of "${bookData?.title}" has been completed successfully.`,
-                related_id: updatedRequest.id,
-                priority: 'high'
-              },
-              {
-                user_id: updatedRequest.seller_id,
-                type: 'transaction_completed',
-                title: 'Sale Completed!',
-                message: `Your sale of "${bookData?.title}" to ${buyerProfile?.full_name || 'buyer'} has been completed.`,
-                related_id: updatedRequest.id,
-                priority: 'high'
-              }
-            );
-          }
-
-          // Insert notifications
-          if (notifications.length > 0) {
-            const { error } = await supabase
-              .from('notifications')
-              .insert(notifications);
-
-            if (error) {
-              console.error('Error creating status change notifications:', error);
-            }
-          }
-        }
-
-        // Check if delivery date was added/updated
-        if (!oldRequest.expected_delivery_date && updatedRequest.expected_delivery_date) {
-          const { data: bookData } = await supabase
-            .from('books')
-            .select('title')
-            .eq('id', updatedRequest.book_id)
-            .single();
-
-          const { data: sellerProfile } = await supabase
-            .from('profiles')
-            .select('full_name')
-            .eq('id', updatedRequest.seller_id)
-            .single();
-
-          // Notify buyer about delivery date
-          if (user.id !== updatedRequest.buyer_id) {
-            await supabase
-              .from('notifications')
-              .insert({
-                user_id: updatedRequest.buyer_id,
-                type: 'delivery_scheduled',
-                title: 'Delivery Date Set',
-                message: `${sellerProfile?.full_name || 'Seller'} has set the delivery date for "${bookData?.title}" to ${new Date(updatedRequest.expected_delivery_date).toLocaleDateString()}.`,
-                related_id: updatedRequest.id,
-                priority: 'normal'
-              });
-          }
-        }
-      })
-      .subscribe((status) => {
-        console.log('Purchase request subscription status:', status);
-      });
-
     return () => {
-      console.log('Cleaning up notification subscriptions');
+      console.log('Cleaning up notification subscription');
       supabase.removeChannel(notificationChannel);
-      supabase.removeChannel(purchaseRequestChannel);
     };
   }, [playNotificationSound, toast]);
 
