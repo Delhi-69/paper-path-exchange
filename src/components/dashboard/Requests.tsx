@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -70,7 +71,7 @@ export const Requests = (props) => {
     setError(null);
     
     try {
-      console.log('Fetching requests for user:', props.userId);
+      console.log('Fetching seller requests for user:', props.userId, 'with profile:', props.userProfile);
       
       const { data, error } = await supabase
         .from("purchase_requests")
@@ -88,7 +89,7 @@ export const Requests = (props) => {
         throw error;
       }
 
-      console.log('Fetched requests data:', data);
+      console.log('Fetched seller requests data:', data);
 
       const enrichedRequests: PurchaseRequest[] = data?.map(request => ({
         id: request.id,
@@ -111,7 +112,7 @@ export const Requests = (props) => {
         message: request.message,
       })) || [];
 
-      console.log('Enriched requests:', enrichedRequests);
+      console.log('Enriched seller requests:', enrichedRequests);
       setRequests(enrichedRequests);
     } catch (error: any) {
       console.error('Error fetching purchase requests:', error);
@@ -201,7 +202,6 @@ export const Requests = (props) => {
     }
   };
 
-
   if (loading) {
     return (
       <Card>
@@ -286,22 +286,22 @@ export const Requests = (props) => {
               </TableHeader>
               <TableBody>
                 {requests.map((request) => {
-                  const buyer = request.buyer_latitude && request.buyer_longitude
+                  const buyerLocation = request.buyer_latitude && request.buyer_longitude
                     ? { latitude: Number(request.buyer_latitude), longitude: Number(request.buyer_longitude) }
                     : null;
-                  const seller = request.seller_latitude && request.seller_longitude
+                  const sellerLocation = request.seller_latitude && request.seller_longitude
                     ? { latitude: Number(request.seller_latitude), longitude: Number(request.seller_longitude) }
                     : null;
                   
-                  const canShowBuyerLocation = buyer && seller;
-                  const distance = canShowBuyerLocation 
-                    ? calculateDistance(buyer.latitude, buyer.longitude, seller.latitude, seller.longitude)
+                  const distance = buyerLocation && sellerLocation 
+                    ? calculateDistance(sellerLocation.latitude, sellerLocation.longitude, buyerLocation.latitude, buyerLocation.longitude)
                     : null;
                   
-                  console.log('Request distance calculation:', {
+                  console.log('Seller Request location data:', {
                     requestId: request.id,
-                    buyer,
-                    seller,
+                    status: request.status,
+                    buyerLocation,
+                    sellerLocation,
                     distance
                   });
                   
@@ -332,8 +332,8 @@ export const Requests = (props) => {
                               <span className="text-blue-600 font-medium">{distance} km away</span>
                             </div>
                           )}
-                          {!request.buyer_location && !buyer && (
-                            <div className="text-sm text-gray-400">No location provided</div>
+                          {!request.buyer_location && !buyerLocation && (
+                            <div className="text-sm text-gray-400">No buyer location provided</div>
                           )}
                         </div>
                       </TableCell>
@@ -363,7 +363,7 @@ export const Requests = (props) => {
                           {request.status === 'pending' && (
                             <div className="flex flex-col gap-2">
                               {/* View Buyer Location Before Accepting */}
-                              {canShowBuyerLocation && (
+                              {buyerLocation && sellerLocation && (
                                 <Dialog>
                                   <DialogTrigger asChild>
                                     <Button
@@ -378,6 +378,9 @@ export const Requests = (props) => {
                                   <DialogContent className="max-w-4xl max-h-[90vh]">
                                     <DialogHeader>
                                       <DialogTitle>Buyer Location - Review Before Accepting</DialogTitle>
+                                      <DialogDescription>
+                                        View the buyer's location and distance before accepting this purchase request.
+                                      </DialogDescription>
                                     </DialogHeader>
                                     <div className="mt-4">
                                       <div className="mb-4 p-4 bg-blue-50 rounded-lg">
@@ -389,8 +392,11 @@ export const Requests = (props) => {
                                         </p>
                                       </div>
                                       <LeafletBookRouteMap
-                                        buyer={buyer}
-                                        seller={seller}
+                                        buyer={buyerLocation}
+                                        seller={sellerLocation}
+                                        bookTitle={request.book_title}
+                                        sellerName="You (Seller)"
+                                        buyerName={request.buyer_name}
                                         showUserLocation={false}
                                       />
                                     </div>
@@ -452,7 +458,7 @@ export const Requests = (props) => {
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    disabled={!canShowBuyerLocation}
+                                    disabled={!buyerLocation || !sellerLocation}
                                     className="bg-purple-600 text-white hover:bg-purple-700 disabled:bg-gray-300"
                                   >
                                     <MapPin className="w-4 h-4 mr-1" />
@@ -461,13 +467,19 @@ export const Requests = (props) => {
                                 </DialogTrigger>
                                 <DialogContent className="max-w-4xl max-h-[90vh]">
                                   <DialogHeader>
-                                    <DialogTitle>Complete Route Map</DialogTitle>
+                                    <DialogTitle>Complete Route Map - You to Buyer</DialogTitle>
+                                    <DialogDescription>
+                                      View the complete delivery route from your location to the buyer's location.
+                                    </DialogDescription>
                                   </DialogHeader>
-                                  {canShowBuyerLocation && (
+                                  {buyerLocation && sellerLocation && (
                                     <div className="mt-4">
                                       <LeafletBookRouteMap
-                                        buyer={buyer}
-                                        seller={seller}
+                                        buyer={buyerLocation}
+                                        seller={sellerLocation}
+                                        bookTitle={request.book_title}
+                                        sellerName="You (Seller)"
+                                        buyerName={request.buyer_name}
                                       />
                                     </div>
                                   )}
@@ -521,6 +533,9 @@ export const Requests = (props) => {
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Set Expected Delivery Date</DialogTitle>
+              <DialogDescription>
+                Choose an expected delivery date for this purchase request.
+              </DialogDescription>
             </DialogHeader>
             <DeliveryDateSelector
               onDateSelect={(date) => handleDeliveryDateSet(selectedRequestForDate, date)}

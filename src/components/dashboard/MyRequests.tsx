@@ -1,10 +1,10 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -73,7 +73,7 @@ export const MyRequests = () => {
         if (error) {
           console.error('Error fetching user profile:', error);
         } else {
-          console.log('User profile loaded:', profile);
+          console.log('Buyer profile loaded:', profile);
           setUserProfile(profile);
         }
       }
@@ -157,7 +157,6 @@ export const MyRequests = () => {
       fetchMyRequests();
     }
   }, [userId, userProfile]);
-
 
   if (loading) {
     return (
@@ -243,28 +242,30 @@ export const MyRequests = () => {
               </TableHeader>
               <TableBody>
                 {requests.map((request) => {
-                  const seller = request.seller_latitude && request.seller_longitude
-                    ? { latitude: Number(request.seller_latitude), longitude: Number(request.seller_longitude) }
-                    : null;
-                  const buyer = request.buyer_latitude && request.buyer_longitude
+                  // Define buyer and seller locations clearly
+                  const buyerLocation = request.buyer_latitude && request.buyer_longitude
                     ? { latitude: Number(request.buyer_latitude), longitude: Number(request.buyer_longitude) }
                     : null;
-                  
-                  const canShowMap = buyer && seller;
-                  const distance = canShowMap 
-                    ? calculateDistance(buyer.latitude, buyer.longitude, seller.latitude, seller.longitude)
+                  const sellerLocation = request.seller_latitude && request.seller_longitude
+                    ? { latitude: Number(request.seller_latitude), longitude: Number(request.seller_longitude) }
                     : null;
                   
-                  console.log('MyRequest distance calculation:', {
+                  // Calculate distance only if both locations are available
+                  const distance = buyerLocation && sellerLocation 
+                    ? calculateDistance(buyerLocation.latitude, buyerLocation.longitude, sellerLocation.latitude, sellerLocation.longitude)
+                    : null;
+                  
+                  console.log('MyRequest location data:', {
                     requestId: request.id,
-                    buyer,
-                    seller,
+                    status: request.status,
+                    buyerLocation,
+                    sellerLocation,
                     distance,
-                    status: request.status
+                    canShowLocation: request.status === 'accepted' || request.status === 'completed'
                   });
                   
-                  // Only show seller location if request is accepted or completed
-                  const canShowSellerLocation = canShowMap && (request.status === 'accepted' || request.status === 'completed');
+                  // Show seller location only after request is accepted/completed
+                  const canShowSellerLocation = request.status === 'accepted' || request.status === 'completed';
                   
                   return (
                     <TableRow key={request.id}>
@@ -281,7 +282,6 @@ export const MyRequests = () => {
                       
                       <TableCell>
                         <div className="space-y-1">
-                          {/* Show seller location only if accepted/completed */}
                           {request.status === 'pending' ? (
                             <div className="text-sm flex items-center gap-1 text-gray-400">
                               <Lock className="h-3 w-3" />
@@ -303,8 +303,8 @@ export const MyRequests = () => {
                               )}
                             </>
                           )}
-                          {request.status !== 'pending' && !request.seller_location && !seller && (
-                            <div className="text-sm text-gray-400">No location provided</div>
+                          {canShowSellerLocation && !request.seller_location && !sellerLocation && (
+                            <div className="text-sm text-gray-400">No seller location provided</div>
                           )}
                         </div>
                       </TableCell>
@@ -357,8 +357,8 @@ export const MyRequests = () => {
                                 </Button>
                               )}
 
-                              {/* View Seller Location (only after acceptance) */}
-                              {canShowSellerLocation && (
+                              {/* View Seller Location (only after acceptance and if both locations exist) */}
+                              {canShowSellerLocation && buyerLocation && sellerLocation && (
                                 <Dialog>
                                   <DialogTrigger asChild>
                                     <Button
@@ -372,23 +372,26 @@ export const MyRequests = () => {
                                   </DialogTrigger>
                                   <DialogContent className="max-w-4xl max-h-[90vh]">
                                     <DialogHeader>
-                                      <DialogTitle>Delivery Route - Buyer to Seller</DialogTitle>
+                                      <DialogTitle>Delivery Route - You to Seller</DialogTitle>
+                                      <DialogDescription>
+                                        View the route from your location to the seller's location for pickup/delivery.
+                                      </DialogDescription>
                                     </DialogHeader>
                                     <div className="mt-4">
                                       <div className="mb-4 p-4 bg-green-50 rounded-lg">
                                         <p className="text-sm text-green-800">
-                                          <strong>Status:</strong> Request Accepted - You can now see the seller's location
+                                          <strong>Status:</strong> Request Accepted - Seller location is now visible
                                         </p>
                                         <p className="text-sm text-green-600 mt-1">
                                           Distance: {distance} km | Seller: {request.seller_name}
                                         </p>
                                       </div>
                                       <LeafletBookRouteMap
-                                        buyer={buyer}
-                                        seller={seller}
+                                        buyer={buyerLocation}
+                                        seller={sellerLocation}
                                         bookTitle={request.book_title}
                                         sellerName={request.seller_name}
-                                        buyerName="You"
+                                        buyerName="You (Buyer)"
                                       />
                                     </div>
                                   </DialogContent>
