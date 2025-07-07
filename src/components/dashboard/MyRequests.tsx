@@ -64,13 +64,18 @@ export const MyRequests = () => {
         setUserId(user.id);
         
         // Get user profile for location
-        const { data: profile } = await supabase
+        const { data: profile, error } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', user.id)
           .single();
         
-        setUserProfile(profile);
+        if (error) {
+          console.error('Error fetching user profile:', error);
+        } else {
+          console.log('User profile loaded:', profile);
+          setUserProfile(profile);
+        }
       }
     };
     
@@ -78,13 +83,20 @@ export const MyRequests = () => {
   }, []);
 
   const fetchMyRequests = async () => {
-    if (!userId) return;
+    if (!userId || !userProfile) {
+      console.log('Missing userId or userProfile:', { userId, userProfile });
+      if (!userId) {
+        setError("User ID not available");
+        setLoading(false);
+      }
+      return;
+    }
 
     setLoading(true);
     setError(null);
     
     try {
-      console.log('Fetching buyer requests for user:', userId);
+      console.log('Fetching buyer requests for user:', userId, 'with profile:', userProfile);
       
       const { data, error } = await supabase
         .from("purchase_requests")
@@ -141,23 +153,11 @@ export const MyRequests = () => {
   };
 
   useEffect(() => {
-    if (userId) {
+    if (userId && userProfile) {
       fetchMyRequests();
     }
-  }, [userId]);
+  }, [userId, userProfile]);
 
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-    const R = 6371; // Radius of the Earth in kilometers
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = 
-      Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) * 
-      Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    const distance = R * c;
-    return Math.round(distance * 10) / 10; // Round to 1 decimal place
-  };
 
   if (loading) {
     return (
