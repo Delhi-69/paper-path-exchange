@@ -386,6 +386,9 @@ export const MyRequests = () => {
                                       <LeafletBookRouteMap
                                         buyer={buyer}
                                         seller={seller}
+                                        bookTitle={request.book_title}
+                                        sellerName={request.seller_name}
+                                        buyerName="You"
                                       />
                                     </div>
                                   </DialogContent>
