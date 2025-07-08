@@ -105,7 +105,29 @@ serve(async (req) => {
       console.log('Created new delivery confirmation');
     }
 
-    // Send OTP via email using Resend
+    // Always create notification for buyer (fallback if email fails)
+    try {
+      const { error: notificationError } = await supabaseService
+        .from('notifications')
+        .insert({
+          user_id: request.buyer_id,
+          type: 'delivery_otp',
+          title: 'Delivery OTP Code',
+          message: `Your delivery OTP for "${request.books.title}" is: ${otpCode}. Please confirm delivery to proceed with payment. Valid for 10 minutes.`,
+          related_id: purchaseRequestId,
+          priority: 'high'
+        });
+
+      if (notificationError) {
+        console.error('Notification error:', notificationError);
+      } else {
+        console.log('Notification created successfully');
+      }
+    } catch (notifErr) {
+      console.error('Failed to create notification:', notifErr);
+    }
+
+    // Try to send OTP via email using Resend
     let emailSent = false;
     if (request.buyer?.email) {
       try {
@@ -147,29 +169,7 @@ serve(async (req) => {
         console.error('Email sending failed:', emailErr);
       }
     } else {
-      console.warn('Buyer email not found for OTP, skipping email notification.');
-    }
-
-    // Create notification for buyer (always create this regardless of email)
-    try {
-      const { error: notificationError } = await supabaseService
-        .from('notifications')
-        .insert({
-          user_id: request.buyer_id,
-          type: 'delivery_otp',
-          title: 'Delivery OTP Code',
-          message: `Your delivery OTP for "${request.books.title}" is: ${otpCode}. Please confirm delivery to proceed with payment. Valid for 10 minutes.`,
-          related_id: purchaseRequestId,
-          priority: 'high'
-        });
-
-      if (notificationError) {
-        console.error('Notification error:', notificationError);
-      } else {
-        console.log('Notification created successfully');
-      }
-    } catch (notifErr) {
-      console.error('Failed to create notification:', notifErr);
+      console.warn('Buyer email not found for OTP, using notification only.');
     }
 
     console.log(`OTP ${otpCode} sent for purchase request ${purchaseRequestId}`);
@@ -178,9 +178,9 @@ serve(async (req) => {
       success: true, 
       message: emailSent ? 
         'OTP sent successfully to your email and notifications.' :
-        'OTP sent to notifications. Please check your app notifications.',
+        'OTP sent to notifications. Please check your app notifications for the OTP code.',
       emailSent,
-      otp: otpCode // Remove this in production for security
+      otp: otpCode // Keep for testing, remove in production
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,

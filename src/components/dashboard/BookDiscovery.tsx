@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -54,6 +53,8 @@ const BookDiscovery: React.FC = () => {
   const { data: books = [], isLoading, refetch } = useQuery({
     queryKey: ['books', searchQuery, selectedGenre, selectedCondition, userLocation],
     queryFn: async () => {
+      console.log('Fetching books with user location:', userLocation);
+      
       let query = supabase
         .from('books')
         .select(`
@@ -77,14 +78,25 @@ const BookDiscovery: React.FC = () => {
 
       const { data, error } = await query;
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching books:', error);
+        throw error;
+      }
 
-      if (!userLocation) return data || [];
+      console.log('Raw books data:', data);
 
-      // Filter books within 10km and calculate distances
+      if (!userLocation) {
+        console.log('No user location, returning books without distance');
+        return data || [];
+      }
+
+      // Calculate distances and filter books within 10km, then sort by distance
       const booksWithDistance = (data || [])
         .map((book: any) => {
-          if (!book.latitude || !book.longitude) return null;
+          if (!book.latitude || !book.longitude) {
+            console.log('Book missing coordinates:', book.title);
+            return null;
+          }
           
           const distance = calculateDistance(
             userLocation.latitude,
@@ -93,21 +105,29 @@ const BookDiscovery: React.FC = () => {
             book.longitude
           );
 
-          if (distance > 10) return null;
+          console.log(`Distance for ${book.title}: ${distance}km`);
+
+          // Filter out books beyond 10km
+          if (distance > 10) {
+            console.log(`Book ${book.title} is too far: ${distance}km`);
+            return null;
+          }
 
           return {
             ...book,
-            distance: Math.round(distance * 10) / 10,
+            distance: Math.round(distance * 10) / 10, // Round to 1 decimal
             delivery_charge: calculateDeliveryCharge(distance)
           };
         })
-        .filter(Boolean);
+        .filter(Boolean); // Remove null entries
 
-      // Sort books - default to distance (low to high) and handle other sorting options
-      return booksWithDistance.sort((a: Book, b: Book) => {
+      console.log('Books with distance:', booksWithDistance);
+
+      // Sort books based on sortBy parameter
+      const sortedBooks = [...booksWithDistance].sort((a: Book, b: Book) => {
         switch (sortBy) {
           case 'distance':
-            return (a.distance || 0) - (b.distance || 0); // Low to high distance
+            return (a.distance || 0) - (b.distance || 0); // Sort by distance (low to high)
           case 'price_low':
             return a.price_range - b.price_range;
           case 'price_high':
@@ -117,9 +137,12 @@ const BookDiscovery: React.FC = () => {
           case 'rating':
             return (b.seller?.average_rating || 0) - (a.seller?.average_rating || 0);
           default:
-            return (a.distance || 0) - (b.distance || 0); // Default to distance low to high
+            return (a.distance || 0) - (b.distance || 0); // Default to distance
         }
       });
+
+      console.log('Final sorted books:', sortedBooks);
+      return sortedBooks;
     },
     enabled: true
   });
@@ -140,7 +163,7 @@ const BookDiscovery: React.FC = () => {
           <div>
             <h1 className="text-3xl font-bold text-white">Find Books Near You</h1>
             <p className="text-gray-400 mt-1">
-              {userLocation ? `${books.length} books within 10km (sorted by distance)` : 'Set location to see nearby books'}
+              {userLocation ? `${books.length} books within 10km (sorted by distance - nearest first)` : 'Set location to see nearby books'}
             </p>
           </div>
           <Badge variant="outline" className="flex items-center gap-2 bg-green-500/10 text-green-400 border-green-500/20 px-4 py-2">
@@ -299,7 +322,7 @@ const BookDiscovery: React.FC = () => {
                           } backdrop-blur`}
                         >
                           <Truck className="h-3 w-3 mr-1" />
-                          {book.delivery_charge === 0 ? 'Free' : `₹${book.delivery_charge}`}
+                          {book.delivery_charge === 0 ? 'Free delivery' : `₹${book.delivery_charge} delivery`}
                         </Badge>
                       )}
                     </div>

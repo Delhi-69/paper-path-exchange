@@ -69,17 +69,22 @@ const PurchaseRequestModal: React.FC<PurchaseRequestModalProps> = ({
         return;
       }
 
+      console.log('Creating purchase request with transfer_mode:', transferMode);
+
       const { error } = await supabase.from('purchase_requests').insert({
         book_id: book.id,
         buyer_id: user.id,
         seller_id: book.seller_id,
         offered_price: offeredPrice,
-        transfer_mode: transferMode,
+        transfer_mode: transferMode, // This should now match the constraint
         message,
         expected_delivery_date: expectedDeliveryDate?.toISOString().split('T')[0],
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Purchase request error:', error);
+        throw error;
+      }
 
       // Create notification for seller
       await supabase.from('notifications').insert({
