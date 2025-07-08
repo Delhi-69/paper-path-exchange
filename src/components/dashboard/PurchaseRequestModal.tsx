@@ -69,14 +69,26 @@ const PurchaseRequestModal: React.FC<PurchaseRequestModalProps> = ({
         return;
       }
 
-      console.log('Creating purchase request with transfer_mode:', transferMode);
+      // Ensure transfer_mode is exactly one of the allowed values
+      const validTransferMode = transferMode === 'delivery' ? 'delivery' : 'pickup';
+      
+      console.log('Creating purchase request with transfer_mode:', validTransferMode);
+      console.log('All request data:', {
+        book_id: book.id,
+        buyer_id: user.id,
+        seller_id: book.seller_id,
+        offered_price: offeredPrice,
+        transfer_mode: validTransferMode,
+        message,
+        expected_delivery_date: expectedDeliveryDate?.toISOString().split('T')[0],
+      });
 
       const { error } = await supabase.from('purchase_requests').insert({
         book_id: book.id,
         buyer_id: user.id,
         seller_id: book.seller_id,
         offered_price: offeredPrice,
-        transfer_mode: transferMode,
+        transfer_mode: validTransferMode,
         message,
         expected_delivery_date: expectedDeliveryDate?.toISOString().split('T')[0],
       });
@@ -87,7 +99,7 @@ const PurchaseRequestModal: React.FC<PurchaseRequestModalProps> = ({
       }
 
       // Create notification for seller
-      await supabase.from('notifications').insert({
+      const { error: notificationError } = await supabase.from('notifications').insert({
         user_id: book.seller_id,
         type: 'purchase_request',
         title: 'New Purchase Request',
@@ -95,6 +107,11 @@ const PurchaseRequestModal: React.FC<PurchaseRequestModalProps> = ({
         related_id: book.id,
         priority: 'high'
       });
+
+      if (notificationError) {
+        console.error('Notification error:', notificationError);
+        // Don't throw here, just log the error
+      }
 
       toast.success('Purchase request sent successfully!');
       onSuccess();
