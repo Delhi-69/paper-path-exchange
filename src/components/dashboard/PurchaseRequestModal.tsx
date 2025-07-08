@@ -76,7 +76,7 @@ const PurchaseRequestModal: React.FC<PurchaseRequestModalProps> = ({
         buyer_id: user.id,
         seller_id: book.seller_id,
         offered_price: offeredPrice,
-        transfer_mode: transferMode, // This should now match the constraint
+        transfer_mode: transferMode,
         message,
         expected_delivery_date: expectedDeliveryDate?.toISOString().split('T')[0],
       });
