@@ -69,7 +69,7 @@ export const ChatModal = ({ isOpen, onClose, requestId, currentUserId }: ChatMod
   };
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && requestId && currentUserId) {
       fetchMessages();
       
       // Set up real-time subscription
@@ -83,9 +83,23 @@ export const ChatModal = ({ isOpen, onClose, requestId, currentUserId }: ChatMod
             table: 'chat_messages',
             filter: `purchase_request_id=eq.${requestId}`
           },
-          (payload) => {
+          async (payload) => {
+            console.log('New chat message received:', payload);
             const newMsg = payload.new as ChatMessage;
-            setMessages(prev => [...prev, newMsg]);
+            
+            // Fetch sender profile for the new message
+            const { data: senderProfile } = await supabase
+              .from('profiles')
+              .select('full_name')
+              .eq('id', newMsg.sender_id)
+              .single();
+            
+            const enrichedMessage = {
+              ...newMsg,
+              profiles: senderProfile ? { full_name: senderProfile.full_name } : null
+            };
+            
+            setMessages(prev => [...prev, enrichedMessage]);
             
             // Play notification sound if message is from another user
             if (newMsg.sender_id !== currentUserId) {
@@ -99,7 +113,7 @@ export const ChatModal = ({ isOpen, onClose, requestId, currentUserId }: ChatMod
         supabase.removeChannel(channel);
       };
     }
-  }, [isOpen, requestId, playNotificationSound, currentUserId]);
+  }, [isOpen, requestId, currentUserId, playNotificationSound]);
 
   const sendMessage = async () => {
     if (!newMessage.trim()) return;

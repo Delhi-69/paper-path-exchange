@@ -6,10 +6,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MapPin, Search, Truck, Star, Clock, Filter } from 'lucide-react';
+import { MapPin, Search, Truck, Star, Clock, Filter, Navigation } from 'lucide-react';
 import { toast } from 'sonner';
 import BookCard from './BookCard';
 import { useUserLocation, calculateDistance, calculateDeliveryCharge } from '@/hooks/useLocationUtils';
+import { LocationPermissionDialog } from '@/components/location/LocationPermissionDialog';
+import { LocationData } from '@/services/locationService';
 
 interface Book {
   id: string;
@@ -39,16 +41,51 @@ const BookDiscovery: React.FC = () => {
   const [selectedCondition, setSelectedCondition] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('distance');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const { userLocation } = useUserLocation();
+  const [manualLocation, setManualLocation] = useState<LocationData | null>(null);
+  const [locationDialogShown, setLocationDialogShown] = useState(false);
+  const { userLocation: profileLocation } = useUserLocation();
+  
+  // Use manual location (from GPS) if available, otherwise fall back to profile location
+  const userLocation = manualLocation || profileLocation;
 
-  // Fetch current user ID
+  // Fetch current user ID and check for location
   useEffect(() => {
     const getCurrentUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       setCurrentUserId(user?.id || null);
+      
+      // Show location dialog if no location is available and not shown before
+      if (user && !userLocation && !locationDialogShown) {
+        setTimeout(() => setLocationDialogShown(true), 2000);
+      }
     };
     getCurrentUser();
-  }, []);
+  }, [userLocation, locationDialogShown]);
+
+  const handleLocationGranted = async (location: LocationData) => {
+    console.log('Location granted:', location);
+    setManualLocation(location);
+    setLocationDialogShown(false);
+    
+    // Also update user profile with the location
+    if (currentUserId) {
+      await supabase
+        .from('profiles')
+        .update({
+          latitude: location.latitude,
+          longitude: location.longitude
+        })
+        .eq('id', currentUserId);
+    }
+    
+    toast.success('Location access granted! You can now see nearby books.');
+  };
+
+  const handleLocationDenied = () => {
+    console.log('Location denied');
+    setLocationDialogShown(false);
+    toast.error('Location access denied. You can still browse all books but won\'t see distance information.');
+  };
 
   const { data: books = [], isLoading, refetch } = useQuery({
     queryKey: ['books', searchQuery, selectedGenre, selectedCondition, userLocation],
@@ -162,9 +199,22 @@ const BookDiscovery: React.FC = () => {
         <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
           <div>
             <h1 className="text-3xl font-bold text-white">Find Books Near You</h1>
-            <p className="text-gray-400 mt-1">
-              {userLocation ? `${books.length} books within 10km (sorted by distance - nearest first)` : 'Set location to see nearby books'}
-            </p>
+            <div className="flex items-center gap-3 mt-2">
+              <p className="text-gray-400">
+                {userLocation ? `${books.length} books within 10km (sorted by distance - nearest first)` : 'Enable location to see nearby books with distances'}
+              </p>
+              {!userLocation && (
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={() => setLocationDialogShown(true)}
+                  className="border-green-500 text-green-400 hover:bg-green-500/10"
+                >
+                  <Navigation className="h-4 w-4 mr-1" />
+                  Enable Location
+                </Button>
+              )}
+            </div>
           </div>
           <Badge variant="outline" className="flex items-center gap-2 bg-green-500/10 text-green-400 border-green-500/20 px-4 py-2">
             <MapPin className="h-4 w-4" />
@@ -405,6 +455,14 @@ const BookDiscovery: React.FC = () => {
           </div>
         )}
       </div>
+      
+      {/* Location Permission Dialog */}
+      {locationDialogShown && (
+        <LocationPermissionDialog
+          onLocationGranted={handleLocationGranted}
+          onLocationDenied={handleLocationDenied}
+        />
+      )}
     </div>
   );
 };

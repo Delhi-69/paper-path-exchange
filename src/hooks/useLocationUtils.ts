@@ -16,21 +16,31 @@ export const useUserLocation = () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
+          console.log('No authenticated user found');
           setLoading(false);
           return;
         }
 
-        const { data: profile } = await supabase
+        const { data: profile, error } = await supabase
           .from('profiles')
           .select('latitude, longitude')
           .eq('id', user.id)
           .single();
 
+        if (error) {
+          console.log('Error fetching user profile:', error);
+          setLoading(false);
+          return;
+        }
+
         if (profile?.latitude && profile?.longitude) {
+          console.log('User location found in profile:', { latitude: profile.latitude, longitude: profile.longitude });
           setUserLocation({
-            latitude: profile.latitude,
-            longitude: profile.longitude
+            latitude: Number(profile.latitude),
+            longitude: Number(profile.longitude)
           });
+        } else {
+          console.log('No location coordinates found in user profile');
         }
       } catch (error) {
         console.error('Error getting user location:', error);
